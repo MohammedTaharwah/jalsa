@@ -1,0 +1,27 @@
+# Node.js / Vite
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+backend/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/*.pyd
+backend/.pytest_cache/
+backend/venv/
+backend/.env
+
+# Local env files
+.env
+
+# Docker data mounts (if any created locally)
+postgres_data/
+n8n_data/
+
+# OS files
+.DS_Store
+Thumbs.db
