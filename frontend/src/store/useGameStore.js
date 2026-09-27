@@ -13,6 +13,28 @@ const randomIndex = Math.floor(Math.random() * (index + 1));
 return shuffled;
 };
 
+const getSeenQuestionKey = (userId) => `jalsah_seen_questions_${userId}`;
+
+const loadSeenQuestionIds = (userId) => {
+try {
+const saved = localStorage.getItem(getSeenQuestionKey(userId));
+return new Set(saved ? JSON.parse(saved) : []);
+} catch (error) {
+return new Set();
+}
+};
+
+const saveSeenQuestionId = (userId, questionId) => {
+if (!userId || questionId === undefined || questionId === null) return;
+const seenIds = loadSeenQuestionIds(userId);
+seenIds.add(questionId);
+try {
+localStorage.setItem(getSeenQuestionKey(userId), JSON.stringify([...seenIds]));
+} catch (error) {
+// A failed local cache write must not interrupt the game.
+}
+};
+
 /**
 * useGameStore - مخزن الحالة المركزي للعبة "جلسة" باستخدام Zustand
 * يوفر إدارة كاملة لـ:
@@ -247,6 +269,8 @@ get().setAvailableGames(Math.max(0, current - 1));
 * تهيئة اللعبة وبناء اللوحة وشبكة الأسئلة
 */
 initGame: (configuredTeams, selectedCategoryIds = ['sports', 'history', 'science', 'cinema', 'general', 'tech']) => {
+const currentUserId = get().currentUser?.id;
+const seenQuestionIds = loadSeenQuestionIds(currentUserId);
 let catKeys = selectedCategoryIds && selectedCategoryIds.length >= 4
 ? selectedCategoryIds
 : ['sports', 'history', 'science', 'cinema', 'general', 'tech'];
@@ -275,7 +299,23 @@ const tierIdx = tierCounters[pts];
 tierCounters[pts] += 1;
 
 const matchingQuestions = questionsList.filter(q => q.points === pts);
-const qData = matchingQuestions[tierIdx] || matchingQuestions[0] || questionsList[rowIdx % questionsList.length];
+const unseenQuestions = matchingQuestions.filter(q => !seenQuestionIds.has(q.id));
+const qData = unseenQuestions[tierIdx] || unseenQuestions[0];
+if (!qData) {
+return {
+id: `${catKey}-${pts}-${rowIdx}`,
+categoryId: catKey,
+categoryName: meta.name,
+categoryMeta: meta,
+points: pts,
+isUsed: false,
+is_available: false,
+status: 'exhausted',
+winnerTeamId: null,
+isMystery: false,
+question: null
+};
+}
 const randomizedQuestion = {
 ...qData,
 options_json: shuffleArray(qData.options_json || [])
@@ -712,11 +752,13 @@ const rivalTeam = teams.find(t => t.id !== currentTeam.id) || teams[(currentTurn
 
 // Record question as seen in backend database
 if (activeQuestion && typeof activeQuestion.id === 'number') {
+const currentUserId = get().currentUser?.id;
+saveSeenQuestionId(currentUserId, activeQuestion.id);
 try {
 fetch(`${API_BASE}/game/record-seen`, {
 method: 'POST',
 headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({ user_id: 1, question_ids: [activeQuestion.id] })
+body: JSON.stringify({ user_id: currentUserId, question_ids: [activeQuestion.id] })
 }).catch(() => {});
 } catch (e) {}
 }
