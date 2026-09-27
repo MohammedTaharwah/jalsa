@@ -26,35 +26,8 @@ class Settings(BaseSettings):
     PAYPAL_CLIENT_SECRET: str = ""
     PAYPAL_ENVIRONMENT: str = "sandbox"
 
-    # SMTP — Brevo (smtp-relay.brevo.com) or Gmail (smtp.gmail.com)
-    SMTP_SERVER: str = ""
-    SMTP_HOST: str = ""
-    SMTP_PORT: int = 587
-    SMTP_USER: str = ""
-    SMTP_PASSWORD: str = ""
-    MAIL_FROM: str = "no-reply@jalsah.com"
-    MAIL_FROM_NAME: str = "منصة جلسة"
-    SMTP_USE_SSL: bool = False
-    EMAILS_FROM_EMAIL: str = ""
-    EMAILS_FROM_NAME: str = ""
     RESEND_API_KEY: str = ""
     RESEND_FROM_EMAIL: str = ""
-
-    @property
-    def smtp_hostname(self) -> str:
-        return (self.SMTP_SERVER or self.SMTP_HOST or "").strip()
-
-    @property
-    def mail_from_address(self) -> str:
-        return (self.MAIL_FROM or self.EMAILS_FROM_EMAIL or "no-reply@jalsah.com").strip()
-
-    @property
-    def mail_from_name(self) -> str:
-        return (self.MAIL_FROM_NAME or self.EMAILS_FROM_NAME or "منصة جلسة").strip()
-
-    @property
-    def is_smtp_configured(self) -> bool:
-        return bool(self.smtp_hostname and self.SMTP_USER and self.SMTP_PASSWORD)
 
 
 settings = Settings()

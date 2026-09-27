@@ -75,7 +75,7 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     db.refresh(new_user)
 
     try:
-        logger.info("Sending OTP email to %s via %s:%s", new_user.email, settings.smtp_hostname, settings.SMTP_PORT)
+        logger.info("Sending OTP email to %s via Resend", new_user.email)
         send_otp_email(new_user.email, otp_code)
         logger.info("OTP email sent successfully to %s", new_user.email)
     except EmailDeliveryError as exc:

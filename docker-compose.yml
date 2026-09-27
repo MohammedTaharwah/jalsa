@@ -47,13 +47,8 @@ services:
       PAYPAL_ENVIRONMENT: ${PAYPAL_ENVIRONMENT:-sandbox}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
-      SMTP_SERVER: ${SMTP_SERVER:-smtp-relay.brevo.com}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      MAIL_FROM: ${MAIL_FROM:-no-reply@jalsah.com}
-      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-منصة جلسة}
-      SMTP_USE_SSL: ${SMTP_USE_SSL:-false}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-onboarding@resend.dev}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
