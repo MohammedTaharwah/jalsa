@@ -84,7 +84,7 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         db.commit()
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="تعذر إرسال رمز التحقق. تحقق من إعدادات SMTP ثم أعد المحاولة.",
+            detail="تعذر إرسال رمز التحقق عبر Resend. تحقق من البريد الموثق ومفتاح Resend ثم أعد المحاولة.",
         ) from exc
 
     return RegisterResponse(

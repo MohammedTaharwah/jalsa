@@ -50,12 +50,20 @@ def send_otp_email(to_email: str, otp_code: str) -> bool:
             },
             timeout=20,
         )
-        response.raise_for_status()
+        if response.is_error:
+            logger.error(
+                "Resend rejected OTP email: status=%s response=%s",
+                response.status_code,
+                response.text[:500],
+            )
+            raise EmailDeliveryError(
+                "رفضت خدمة البريد إرسال الرسالة. تحقق من البريد الموثق ومفتاح Resend."
+            )
 
         logger.info("OTP email sent via Resend to %s", to_email)
         return True
     except Exception as exc:
         logger.exception("Failed to send OTP email via Resend to %s", to_email)
         raise EmailDeliveryError(
-            "تعذر إرسال رسالة التحقق. تحقق من إعدادات Resend أو أعد المحاولة."
+            "تعذر إرسال رسالة التحقق عبر Resend. تحقق من إعدادات Resend أو أعد المحاولة."
         ) from exc
