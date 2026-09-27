@@ -4,6 +4,15 @@ import { BATTLEGROUND_QUESTIONS } from '../data/triviaQuestions';
 import { CATEGORIES_DATA, FORTUNE_WHEEL_OPTIONS, POWERUPS_CATALOG } from '../data/categoriesData';
 import { API_BASE } from '../utils/api';
 
+const shuffleArray = (items) => {
+const shuffled = [...items];
+for (let index = shuffled.length - 1; index > 0; index -= 1) {
+const randomIndex = Math.floor(Math.random() * (index + 1));
+[shuffled[index], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[index]];
+}
+return shuffled;
+};
+
 /**
 * useGameStore - مخزن الحالة المركزي للعبة "جلسة" باستخدام Zustand
 * يوفر إدارة كاملة لـ:
@@ -254,7 +263,7 @@ catKeys = catKeys.slice(0, 6);
 
 const newBoard = catKeys.map((catKey, colIdx) => {
 const meta = CATEGORIES_DATA.find(c => c.id === catKey) || CATEGORIES_DATA[0];
-const questionsList = BATTLEGROUND_QUESTIONS[catKey] || BATTLEGROUND_QUESTIONS.general;
+const questionsList = shuffleArray(BATTLEGROUND_QUESTIONS[catKey] || BATTLEGROUND_QUESTIONS.general);
 const ownerTeam = colIdx < 3 ? configuredTeams[0] : (configuredTeams[1] || configuredTeams[0]);
 
 // 6 question tiles per category: [200, 200, 400, 400, 600, 600]
@@ -267,6 +276,10 @@ tierCounters[pts] += 1;
 
 const matchingQuestions = questionsList.filter(q => q.points === pts);
 const qData = matchingQuestions[tierIdx] || matchingQuestions[0] || questionsList[rowIdx % questionsList.length];
+const randomizedQuestion = {
+...qData,
+options_json: shuffleArray(qData.options_json || [])
+};
 
 return {
 id: `${catKey}-${pts}-${rowIdx}`,
@@ -278,7 +291,7 @@ isUsed: false,
 status: 'available',
 winnerTeamId: null,
 isMystery: (rowIdx === 2 || rowIdx === 3) && colIdx % 2 === 0, // Mystery cue
-question: qData
+question: randomizedQuestion
 };
 });
 

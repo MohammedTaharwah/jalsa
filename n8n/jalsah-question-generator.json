@@ -1,0 +1,120 @@
+{
+  "name": "Jalsah AI Question Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-questions",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "jalsah-webhook",
+      "name": "Receive generation request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "jalsah-generate-questions"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json.body ?? $json;\nconst count = Math.min(Math.max(Number(input.count || 5), 1), 30);\nconst category = input.category_name || 'ثقافة عامة';\nconst difficulty = input.difficulty || 'medium';\nconst language = input.language || 'ar';\n\nreturn [{\n  json: {\n    category_id: input.category_id || null,\n    category_name: category,\n    count,\n    difficulty,\n    language,\n    callback_url: input.callback_url,\n    callback_api_key: input.callback_api_key,\n    prompt: `Generate exactly ${count} unique trivia questions in ${language} about ${category}. Difficulty: ${difficulty}. Return ONLY valid JSON with this shape: {\\\"questions\\\":[{\\\"question_text\\\":\\\"...\\\",\\\"options_json\\\":[\\\"...\\\",\\\"...\\\",\\\"...\\\",\\\"...\\\"],\\\"correct_answer\\\":\\\"...\\\",\\\"points_level\\\":200,\\\"category_name\\\":\\\"${category}\\\"}]}. Every question must have exactly four distinct options, and correct_answer must exactly match one option. Use points_level values 200, 400, or 600.`\n  }\n}];"
+      },
+      "id": "prepare-prompt",
+      "name": "Prepare AI prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.OPENAI_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ model: 'gpt-4o-mini', temperature: 0.9, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: 'You create accurate, family-friendly trivia questions.' }, { role: 'user', content: $json.prompt }] }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "openai-generate",
+      "name": "Generate questions with OpenAI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [740, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const request = $('Prepare AI prompt').first().json;\nconst content = $json.choices?.[0]?.message?.content;\nif (!content) throw new Error('OpenAI returned no message content');\nconst parsed = typeof content === 'string' ? JSON.parse(content) : content;\nif (!Array.isArray(parsed.questions) || parsed.questions.length === 0) throw new Error('AI response contains no questions');\n\nreturn [{\n  json: {\n    callback_url: request.callback_url,\n    callback_api_key: request.callback_api_key,\n    category_id: request.category_id,\n    category_name: request.category_name,\n    questions: parsed.questions.map((question) => ({\n      ...question,\n      category_id: question.category_id || request.category_id,\n      category_name: question.category_name || request.category_name,\n      options_json: Array.isArray(question.options_json) ? question.options_json : [],\n      points_level: Number(question.points_level || 200)\n    }))\n  }\n}];"
+      },
+      "id": "normalize-questions",
+      "name": "Normalize AI response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.callback_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-KEY",
+              "value": "={{ $json.callback_api_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ category_id: $json.category_id, category_name: $json.category_name, questions: $json.questions }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "send-to-backend",
+      "name": "Send questions to Jalsah backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1260, 300]
+    }
+  ],
+  "connections": {
+    "Receive generation request": {
+      "main": [[{ "node": "Prepare AI prompt", "type": "main", "index": 0 }]]
+    },
+    "Prepare AI prompt": {
+      "main": [[{ "node": "Generate questions with OpenAI", "type": "main", "index": 0 }]]
+    },
+    "Generate questions with OpenAI": {
+      "main": [[{ "node": "Normalize AI response", "type": "main", "index": 0 }]]
+    },
+    "Normalize AI response": {
+      "main": [[{ "node": "Send questions to Jalsah backend", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "jalsah-question-generator-v1",
+  "meta": { "templateCredsSetupCompleted": true },
+  "tags": []
+}
