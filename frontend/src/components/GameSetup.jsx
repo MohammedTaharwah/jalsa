@@ -108,8 +108,16 @@ default: return <Users className={className} />;
 }
 };
 
-// Categories Source from central mock data
-const AVAILABLE_CATEGORIES = CATEGORIES_DATA;
+const categoryKeyByName = {
+'رياضة ولياقة': 'sports',
+'تاريخ وحضارات': 'history',
+'علوم وفضاء': 'science',
+'أفلام وسينما': 'cinema',
+'ثقافة عامة': 'general',
+'تكنولوجيا واختراعات': 'tech',
+'جغرافيا وسفر': 'geography',
+'فنون وأدب': 'arts'
+};
 
 export const GameSetup = () => {
 const {
@@ -129,6 +137,9 @@ const [isOTPOpen, setIsOTPOpen] = useState(false);
 const [isAdminPromoOpen, setIsAdminPromoOpen] = useState(false);
 const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 const [isAuthOpen, setIsAuthOpen] = useState(false);
+const [availableCategories, setAvailableCategories] = useState([]);
+const [isCategoriesLoading, setIsCategoriesLoading] = useState(true);
+const [categoriesError, setCategoriesError] = useState('');
 
 const isVerified = currentUser ? !!currentUser.is_verified : true;
 const userEmail = currentUser ? currentUser.email : 'ahmed@example.com';
@@ -149,11 +160,40 @@ const [teams, setTeams] = useState([
 ]);
 
 // Step 2: Turn-based Category Selection (3 categories for Team 1, 3 for Team 2)
-const [team1Categories, setTeam1Categories] = useState(['sports', 'history', 'science']);
-const [team2Categories, setTeam2Categories] = useState(['cinema', 'general', 'tech']);
+const [team1Categories, setTeam1Categories] = useState([]);
+const [team2Categories, setTeam2Categories] = useState([]);
 const [categorySelectingTeam, setCategorySelectingTeam] = useState(0); // 0 = Team 1, 1 = Team 2
 
 const selectedCategories = [...team1Categories, ...team2Categories];
+
+useEffect(() => {
+const loadCategories = async () => {
+try {
+const response = await fetch(`${API_BASE}/categories/?limit=100`);
+if (!response.ok) throw new Error('تعذر تحميل الفئات من قاعدة البيانات.');
+const databaseCategories = await response.json();
+const mappedCategories = databaseCategories.map((category) => {
+const metadata = CATEGORIES_DATA.find((item) => item.id === categoryKeyByName[category.name]);
+return {
+...metadata,
+id: categoryKeyByName[category.name] || `db-${category.id}`,
+dbId: category.id,
+name: category.name,
+desc: category.description || metadata?.desc || ''
+};
+});
+setAvailableCategories(mappedCategories);
+setTeam1Categories(mappedCategories.slice(0, 3).map((category) => category.id));
+setTeam2Categories(mappedCategories.slice(3, 6).map((category) => category.id));
+} catch (error) {
+setCategoriesError(error.message || 'تعذر تحميل الفئات.');
+} finally {
+setIsCategoriesLoading(false);
+}
+};
+
+loadCategories();
+}, []);
 
 // Step 3: Game Settings
 const [questionCount, setQuestionCount] = useState(10);
@@ -634,6 +674,21 @@ animate="animate"
 exit="exit"
 className="space-y-5"
 >
+{isCategoriesLoading && (
+<div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-600 text-sm font-bold text-center">
+جاري تحميل الفئات من قاعدة البيانات...
+</div>
+)}
+{categoriesError && (
+<div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-sm font-bold text-center">
+{categoriesError}
+</div>
+)}
+{!isCategoriesLoading && !categoriesError && availableCategories.length < 6 && (
+<div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-sm font-bold text-center">
+يجب إضافة 6 فئات على الأقل في قاعدة البيانات قبل بدء اللعبة. الفئات الحالية: {availableCategories.length}
+</div>
+)}
 {/* Header */}
 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
 <div>
@@ -724,7 +779,7 @@ categorySelectingTeam === 1
 
 {/* Categories Grid (with disabled state for categories chosen by the other team) */}
 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-{AVAILABLE_CATEGORIES.map((cat) => {
+{availableCategories.map((cat) => {
 const isChosenByTeam1 = team1Categories.includes(cat.id);
 const isChosenByTeam2 = team2Categories.includes(cat.id);
 
@@ -779,7 +834,7 @@ onToggle={toggleCategory}
 <div className="flex flex-wrap gap-1.5">
 {team1Categories.length > 0 ? (
 team1Categories.map(cId => {
-const cMeta = AVAILABLE_CATEGORIES.find(c => c.id === cId);
+const cMeta = availableCategories.find(c => c.id === cId);
 return (
 <span key={cId} className="px-2.5 py-1 rounded-xl bg-white border border-purple-200 text-purple-800 text-[11px] font-bold shadow-2xs flex items-center gap-1">
 <span>{cMeta?.emoji || ''}</span>
@@ -807,7 +862,7 @@ return (
 <div className="flex flex-wrap gap-1.5">
 {team2Categories.length > 0 ? (
 team2Categories.map(cId => {
-const cMeta = AVAILABLE_CATEGORIES.find(c => c.id === cId);
+const cMeta = availableCategories.find(c => c.id === cId);
 return (
 <span key={cId} className="px-2.5 py-1 rounded-xl bg-white border border-orange-200 text-orange-800 text-[11px] font-bold shadow-2xs flex items-center gap-1">
 <span>{cMeta?.emoji || ''}</span>
@@ -1017,7 +1072,7 @@ className="text-[10px] font-black px-2 py-0.5 rounded-md bg-purple-100 text-purp
 {teams[0]?.name}:
 </span>
 <span className="text-slate-800 font-bold">
-{team1Categories.map(cId => AVAILABLE_CATEGORIES.find(c => c.id === cId)?.name).filter(Boolean).join(' • ')}
+{team1Categories.map(cId => availableCategories.find(c => c.id === cId)?.name).filter(Boolean).join(' • ')}
 </span>
 </div>
 <div className="flex items-center gap-1.5 flex-wrap">
@@ -1025,7 +1080,7 @@ className="text-[10px] font-black px-2 py-0.5 rounded-md bg-purple-100 text-purp
 {teams[1]?.name}:
 </span>
 <span className="text-slate-800 font-bold">
-{team2Categories.map(cId => AVAILABLE_CATEGORIES.find(c => c.id === cId)?.name).filter(Boolean).join(' • ')}
+{team2Categories.map(cId => availableCategories.find(c => c.id === cId)?.name).filter(Boolean).join(' • ')}
 </span>
 </div>
 </div>
