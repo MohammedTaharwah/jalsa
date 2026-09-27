@@ -18,6 +18,14 @@ def send_otp_email(to_email: str, otp_code: str) -> bool:
     إرسال كود التحقق OTP المكون من 6 أرقام إلى بريد المستخدم عبر SMTP الحقيقي.
     يتطلب SMTP_SERVER / SMTP_USER / SMTP_PASSWORD (Brevo أو Gmail).
     """
+    logger.info(
+        "SMTP configuration check: host=%s port=%s user_configured=%s sender=%s",
+        settings.smtp_hostname,
+        settings.SMTP_PORT,
+        bool(settings.SMTP_USER),
+        settings.mail_from_address,
+    )
+
     if not settings.is_smtp_configured:
         raise EmailDeliveryError(
             "إعدادات SMTP غير مكتملة. أضف SMTP_SERVER و SMTP_USER و SMTP_PASSWORD في ملف .env."

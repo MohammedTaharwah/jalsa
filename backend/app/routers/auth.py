@@ -1,4 +1,5 @@
 import random
+import logging
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -21,6 +22,7 @@ from app.core.email import send_otp_email, EmailDeliveryError
 from app.config import settings
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+logger = logging.getLogger("qna_backend.auth")
 
 
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
@@ -29,6 +31,8 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     تسجيل مستخدم جديد مع توليد وإرسال كود OTP مكون من 6 أرقام.
     الحساب يبدأ كـ is_verified = False ولا يمكنه بدء اللعب إلا بعد التوثيق.
     """
+    logger.info("Registration request received for %s", user_in.email)
+
     # Check if username or email already exists
     existing_user = db.query(User).filter(
         or_(User.username == user_in.username, User.email == user_in.email)
@@ -71,8 +75,11 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     db.refresh(new_user)
 
     try:
+        logger.info("Sending OTP email to %s via %s:%s", new_user.email, settings.smtp_hostname, settings.SMTP_PORT)
         send_otp_email(new_user.email, otp_code)
+        logger.info("OTP email sent successfully to %s", new_user.email)
     except EmailDeliveryError as exc:
+        logger.exception("OTP email delivery failed for %s", new_user.email)
         db.delete(new_user)
         db.commit()
         raise HTTPException(
