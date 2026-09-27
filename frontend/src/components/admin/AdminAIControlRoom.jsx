@@ -13,7 +13,8 @@ import {
   ArrowRight,
   ShieldCheck,
   Check,
-  X
+  X,
+  Upload
 } from 'lucide-react';
 import { authFetch } from '../../utils/api';
 
@@ -28,6 +29,7 @@ export const AdminAIControlRoom = () => {
   const [difficulty, setDifficulty] = useState('medium');
   const [isGenerating, setIsGenerating] = useState(false);
   const [genResult, setGenResult] = useState(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   const [toastMsg, setToastMsg] = useState(null);
 
@@ -108,6 +110,30 @@ export const AdminAIControlRoom = () => {
       });
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleImportJson = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await authFetch('/api/admin/questions/import-json', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'تعذر استيراد ملف JSON');
+      showToast(`تم استيراد ${data.imported} سؤال إلى طابور المراجعة.`);
+      fetchPending();
+    } catch (error) {
+      showToast(error.message || 'تعذر استيراد ملف JSON');
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -258,6 +284,18 @@ export const AdminAIControlRoom = () => {
             </button>
           </div>
         </form>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-slate-50 border border-dashed border-slate-300">
+          <div>
+            <p className="text-xs font-black text-slate-700">n8n لا يعمل؟ استورد الأسئلة من JSON</p>
+            <p className="text-[11px] text-slate-500 mt-1">سيتم فحصها وإضافتها إلى طابور المراجعة بحالة Pending.</p>
+          </div>
+          <label className="cursor-pointer px-4 py-2 rounded-xl bg-white border border-slate-200 text-purple-700 hover:bg-purple-50 text-xs font-black flex items-center gap-2">
+            <Upload className="w-4 h-4" />
+            {isImporting ? 'جارٍ الاستيراد...' : 'اختيار ملف JSON'}
+            <input type="file" accept="application/json,.json" onChange={handleImportJson} className="hidden" disabled={isImporting} />
+          </label>
+        </div>
 
         {/* Feedback alert after generation */}
         {genResult && (

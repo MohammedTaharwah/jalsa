@@ -10,8 +10,9 @@ export const getAuthToken = () => {
 
 export const authFetch = async (endpoint, options = {}) => {
   const token = getAuthToken();
+  const isFormData = options.body instanceof FormData;
   const headers = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers || {})
   };

@@ -1,7 +1,9 @@
 import logging
+import json
+import random
 import httpx
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 from sqlalchemy import or_
@@ -340,6 +342,63 @@ def list_pending_ai_questions(
     return db.query(Question).filter(Question.status == "pending").order_by(Question.id.desc()).all()
 
 
+@router.post("/questions/import-json", status_code=status.HTTP_201_CREATED)
+async def import_questions_json(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_admin)
+):
+    """Import questions from a JSON array or an object containing a questions array."""
+    try:
+        payload = json.loads((await file.read()).decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail="ملف JSON غير صالح أو ليس بترميز UTF-8.") from exc
+
+    questions = payload.get("questions") if isinstance(payload, dict) else payload
+    if not isinstance(questions, list) or not questions:
+        raise HTTPException(status_code=422, detail="يجب أن يكون الملف مصفوفة أسئلة أو يحتوي على questions.")
+
+    saved = []
+    for index, item in enumerate(questions):
+        if not isinstance(item, dict) or not item.get("question_text"):
+            raise HTTPException(status_code=422, detail=f"السؤال رقم {index + 1} ناقص question_text.")
+
+        options = item.get("options_json") or item.get("options")
+        if not isinstance(options, list) or len(options) < 2:
+            raise HTTPException(status_code=422, detail=f"السؤال رقم {index + 1} يحتاج خيارين على الأقل.")
+
+        category = None
+        if item.get("category_id"):
+            category = db.query(Category).filter(Category.id == item["category_id"]).first()
+        if not category and item.get("category_name"):
+            category = db.query(Category).filter(Category.name == item["category_name"].strip()).first()
+            if not category:
+                category = Category(name=item["category_name"].strip(), description="Imported from JSON")
+                db.add(category)
+                db.flush()
+        if not category:
+            raise HTTPException(status_code=422, detail=f"السؤال رقم {index + 1} يحتاج category_id أو category_name.")
+
+        correct_answer = str(item.get("correct_answer", "")).strip()
+        if correct_answer not in [str(option) for option in options]:
+            raise HTTPException(status_code=422, detail=f"correct_answer للسؤال رقم {index + 1} غير موجود ضمن الخيارات.")
+
+        question = Question(
+            category_id=category.id,
+            question_text=str(item["question_text"]).strip(),
+            options_json=options,
+            correct_answer=correct_answer,
+            points_level=int(item.get("points_level") or 200),
+            media_url=item.get("media_url"),
+            status="pending"
+        )
+        db.add(question)
+        saved.append(question)
+
+    db.commit()
+    return {"status": "success", "imported": len(saved), "message": "تم استيراد الأسئلة إلى طابور المراجعة."}
+
+
 @router.patch("/questions/{question_id}/status", response_model=QuestionOut)
 def review_question_status(
     question_id: int,
@@ -446,7 +505,7 @@ async def generate_questions_trigger(
             Question(
                 category_id=category.id,
                 question_text=f"سؤال ذكاء اصطناعي (مستوى 200) في {category.name}؟",
-                options_json=["خيار أول أ", "خيار ثانٍ ب", "خيار ثالث ج", "خيار رابع د"],
+                options_json=random.sample(["خيار أول أ", "خيار ثانٍ ب", "خيار ثالث ج", "خيار رابع د"], 4),
                 correct_answer="خيار أول أ",
                 points_level=200,
                 status="pending"
@@ -454,7 +513,7 @@ async def generate_questions_trigger(
             Question(
                 category_id=category.id,
                 question_text=f"سؤال تكتيكي متوسط (مستوى 400) في {category.name}؟",
-                options_json=["إجابة صحيحة", "إجابة خاطئة 1", "إجابة خاطئة 2", "إجابة خاطئة 3"],
+                options_json=random.sample(["إجابة صحيحة", "إجابة خاطئة 1", "إجابة خاطئة 2", "إجابة خاطئة 3"], 4),
                 correct_answer="إجابة صحيحة",
                 points_level=400,
                 status="pending"
@@ -462,7 +521,7 @@ async def generate_questions_trigger(
             Question(
                 category_id=category.id,
                 question_text=f"تحدي الخبراء النهائي (مستوى 600) في {category.name}؟",
-                options_json=["الخيار النادر", "خيار تقليدي", "خيار مضلل", "خيار وهمي"],
+                options_json=random.sample(["الخيار النادر", "خيار تقليدي", "خيار مضلل", "خيار وهمي"], 4),
                 correct_answer="الخيار النادر",
                 points_level=600,
                 status="pending"
