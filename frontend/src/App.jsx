@@ -7,6 +7,39 @@ import { AdminLayout } from './components/admin/AdminLayout';
 import { AuthModal } from './components/AuthModal';
 import { ShieldAlert, ArrowLeft } from 'lucide-react';
 
+class AppErrorBoundary extends React.Component {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error) {
+    console.error('Jalsah UI error:', error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6 text-center" dir="rtl">
+          <div className="max-w-md rounded-3xl bg-white p-8 shadow-xl">
+            <h1 className="text-xl font-black text-slate-900">تعذر تحميل الصفحة</h1>
+            <p className="mt-2 text-sm text-slate-500">حدّث الصفحة أو سجّل الدخول من جديد.</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-5 rounded-2xl bg-purple-600 px-5 py-3 text-sm font-bold text-white"
+            >
+              إعادة المحاولة
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const GameContainer = () => {
   const { gameStage, currentUser, currentRoute, setCurrentRoute, logout } = useGame();
 
@@ -96,8 +129,10 @@ const GameContainer = () => {
 
 export default function App() {
   return (
-    <GameProvider>
-      <GameContainer />
-    </GameProvider>
+    <AppErrorBoundary>
+      <GameProvider>
+        <GameContainer />
+      </GameProvider>
+    </AppErrorBoundary>
   );
 }

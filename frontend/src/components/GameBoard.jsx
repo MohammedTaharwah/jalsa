@@ -58,7 +58,7 @@ useEffect(() => {
 if (!board || board.length === 0) {
 initGame(teams, ['sports', 'history', 'science', 'cinema', 'general', 'tech']);
 }
-}, [board, teams, initGame]);
+}, [board?.length, initGame]);
 
 // Circular Timer State (30 seconds per question)
 const TIMER_SECONDS = 30;
