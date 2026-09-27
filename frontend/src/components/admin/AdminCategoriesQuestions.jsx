@@ -15,7 +15,8 @@ import {
   AlertCircle,
   Sparkles,
   Image as ImageIcon,
-  Layers
+  Layers,
+  Upload
 } from 'lucide-react';
 import { authFetch } from '../../utils/api';
 
@@ -54,10 +55,35 @@ export const AdminCategoriesQuestions = () => {
   });
 
   const [toastMsg, setToastMsg] = useState(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   const showToast = (msg) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 3000);
+  };
+
+  const handleImportJson = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await authFetch('/api/admin/questions/import-json', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'تعذر استيراد ملف JSON');
+      showToast(`تم استيراد ${data.imported} سؤال إلى طابور المراجعة.`);
+      fetchQuestions();
+    } catch (error) {
+      showToast(error.message || 'تعذر استيراد ملف JSON');
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   // Fetch Categories
@@ -451,6 +477,18 @@ export const AdminCategoriesQuestions = () => {
             >
               <Plus className="w-4 h-4" /> إضافة سؤال يدوياً
             </button>
+
+            <label className="cursor-pointer py-2 px-4 bg-white hover:bg-purple-50 text-purple-700 border border-purple-200 rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition">
+              <Upload className="w-4 h-4" />
+              {isImporting ? 'جارٍ الاستيراد...' : 'رفع JSON'}
+              <input
+                type="file"
+                accept="application/json,.json"
+                onChange={handleImportJson}
+                className="hidden"
+                disabled={isImporting}
+              />
+            </label>
           </div>
 
           {/* Questions Table */}
