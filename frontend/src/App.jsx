@@ -8,10 +8,10 @@ import { AuthModal } from './components/AuthModal';
 import { ShieldAlert, ArrowLeft } from 'lucide-react';
 
 class AppErrorBoundary extends React.Component {
-  state = { hasError: false };
+  state = { hasError: false, errorMessage: '' };
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error) {
+    return { hasError: true, errorMessage: error?.message || 'خطأ غير معروف' };
   }
 
   componentDidCatch(error) {
@@ -25,6 +25,9 @@ class AppErrorBoundary extends React.Component {
           <div className="max-w-md rounded-3xl bg-white p-8 shadow-xl">
             <h1 className="text-xl font-black text-slate-900">تعذر تحميل الصفحة</h1>
             <p className="mt-2 text-sm text-slate-500">حدّث الصفحة أو سجّل الدخول من جديد.</p>
+            <p className="mt-3 break-words rounded-xl bg-rose-50 p-3 text-xs text-rose-700" dir="ltr">
+              {this.state.errorMessage}
+            </p>
             <button
               type="button"
               onClick={() => window.location.reload()}
