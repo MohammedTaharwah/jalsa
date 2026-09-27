@@ -416,6 +416,35 @@ def approve_all_pending_questions(
     return {"status": "success", "approved": updated_count}
 
 
+@router.post("/questions/shuffle-options")
+def shuffle_all_question_options(
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_admin)
+):
+    """Shuffle answer options for every question without changing the correct answer text."""
+    questions = db.query(Question).all()
+    for question in questions:
+        options = list(question.options_json or [])
+        random.shuffle(options)
+        question.options_json = options
+
+    db.commit()
+    logger.info("Admin %s shuffled options for %s questions", admin_user.username, len(questions))
+    return {"status": "success", "shuffled": len(questions)}
+
+
+@router.delete("/questions/delete-all")
+def delete_all_questions(
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_admin)
+):
+    """Delete every question while keeping categories and users intact."""
+    deleted_count = db.query(Question).delete(synchronize_session=False)
+    db.commit()
+    logger.warning("Admin %s deleted all %s questions", admin_user.username, deleted_count)
+    return {"status": "success", "deleted": deleted_count}
+
+
 @router.patch("/questions/{question_id}/status", response_model=QuestionOut)
 def review_question_status(
     question_id: int,

@@ -280,6 +280,36 @@ export const AdminCategoriesQuestions = () => {
     }
   };
 
+  const handleShuffleAllOptions = async () => {
+    if (!window.confirm('هل تريد خلط خيارات جميع الأسئلة؟ ستبقى الإجابات الصحيحة محفوظة.')) return;
+
+    try {
+      const response = await authFetch('/api/admin/questions/shuffle-options', { method: 'POST' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'تعذر خلط الخيارات');
+      showToast(`تم خلط خيارات ${data.shuffled} سؤال.`);
+      fetchQuestions();
+    } catch (error) {
+      showToast(error.message || 'تعذر خلط الخيارات');
+    }
+  };
+
+  const handleDeleteAllQuestions = async () => {
+    if (!window.confirm('تحذير: سيتم حذف جميع أسئلة بنك الأسئلة نهائياً. هل تريد المتابعة؟')) return;
+    if (!window.confirm('تأكيد أخير: حذف جميع الأسئلة؟')) return;
+
+    try {
+      const response = await authFetch('/api/admin/questions/delete-all', { method: 'DELETE' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'تعذر حذف الأسئلة');
+      showToast(`تم حذف ${data.deleted} سؤال.`);
+      fetchQuestions();
+      fetchCategories();
+    } catch (error) {
+      showToast(error.message || 'تعذر حذف الأسئلة');
+    }
+  };
+
   const getCategoryName = (catId) => {
     const found = categories.find((c) => c.id === catId);
     return found ? found.name : `فئة #${catId}`;
@@ -512,6 +542,22 @@ export const AdminCategoriesQuestions = () => {
               className="py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
             >
               <CheckCircle2 className="w-4 h-4" /> اعتماد الكل
+            </button>
+
+            <button
+              type="button"
+              onClick={handleShuffleAllOptions}
+              className="py-2 px-4 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
+            >
+              <RefreshCw className="w-4 h-4" /> لخبطة الإجابات
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDeleteAllQuestions}
+              className="py-2 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
+            >
+              <Trash2 className="w-4 h-4" /> حذف الكل
             </button>
           </div>
 
