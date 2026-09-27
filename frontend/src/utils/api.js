@@ -23,3 +23,16 @@ export const authFetch = async (endpoint, options = {}) => {
     headers
   });
 };
+
+export const parseApiResponse = async (response) => {
+  const contentType = response.headers.get('content-type') || '';
+  const payload = contentType.includes('application/json')
+    ? await response.json()
+    : { detail: await response.text() };
+
+  if (!response.ok) {
+    throw new Error(payload.detail || payload.message || `فشل الطلب (${response.status})`);
+  }
+
+  return payload;
+};

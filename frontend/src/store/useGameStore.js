@@ -94,14 +94,7 @@ try {
 const saved = localStorage.getItem('jalsah_user');
 if (saved) return JSON.parse(saved);
 } catch (e) {}
-return {
-id: 2,
-username: 'ahmed_player',
-email: 'ahmed@example.com',
-is_verified: true,
-games_balance: 1,
-role: 'player'
-};
+return null;
 })(),
 
 // Available Games Balance in Global Store
@@ -182,6 +175,36 @@ currentUser: null,
 currentRoute: 'setup',
 availableGames: 1
 });
+},
+
+rehydrateSession: async () => {
+const token = get().getAuthToken();
+if (!token) return;
+
+try {
+const response = await fetch(`${API_BASE}/auth/me`, {
+headers: { Authorization: `Bearer ${token}` }
+});
+
+if (!response.ok) {
+get().logout();
+return;
+}
+
+const user = await response.json();
+get().setCurrentUser(user);
+} catch (error) {
+// Keep the cached session during a temporary network outage.
+console.error('Unable to restore the saved session:', error);
+}
+},
+
+getAuthToken: () => {
+try {
+return localStorage.getItem('jalsah_access_token') || '';
+} catch (e) {
+return '';
+}
 },
 
 setAvailableGames: (count) => {

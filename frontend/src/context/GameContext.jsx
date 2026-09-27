@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 import { useGameStore } from '../store/useGameStore';
 
 /**
@@ -10,6 +10,11 @@ const GameContext = createContext(null);
 
 export const GameProvider = ({ children }) => {
   const store = useGameStore();
+
+  useEffect(() => {
+    store.rehydrateSession();
+  }, []);
+
   return <GameContext.Provider value={store}>{children}</GameContext.Provider>;
 };
 

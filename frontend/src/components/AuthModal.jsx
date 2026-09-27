@@ -20,7 +20,7 @@ RefreshCw,
 ArrowRight
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { API_BASE } from '../utils/api';
+import { API_BASE, parseApiResponse } from '../utils/api';
 import { useGameStore } from '../store/useGameStore';
 
 export const AuthModal = ({ isOpen, onClose }) => {
@@ -73,10 +73,7 @@ password: pass
 })
 });
 
-const data = await res.json();
-if (!res.ok) {
-throw new Error(data.detail || 'فشل تسجيل الدخول. تحقق من بيانات الحساب.');
-}
+const data = await parseApiResponse(res);
 
 if (data.access_token) {
 localStorage.setItem('jalsah_access_token', data.access_token);
@@ -119,10 +116,7 @@ password: password
 })
 });
 
-const data = await res.json();
-if (!res.ok) {
-throw new Error(data.detail || 'فشل إنشاء الحساب.');
-}
+const data = await parseApiResponse(res);
 
 setRegisteredEmail(email.trim());
 setIsOTPStep(true);
@@ -193,10 +187,7 @@ otp_code: fullCode
 })
 });
 
-const data = await res.json();
-if (!res.ok) {
-throw new Error(data.detail || 'رمز التحقق غير صحيح أو منتهي الصلاحية');
-}
+const data = await parseApiResponse(res);
 
 if (data.access_token) {
 localStorage.setItem('jalsah_access_token', data.access_token);
@@ -235,10 +226,7 @@ email: registeredEmail
 })
 });
 
-const data = await res.json();
-if (!res.ok) {
-throw new Error(data.detail || 'تعذر إعادة إرسال الرمز');
-}
+const data = await parseApiResponse(res);
 
 setSuccessMsg(data.message || 'تم إرسال رمز تحقق جديد إلى بريدك الإلكتروني!');
 setOtp(['', '', '', '', '', '']);
@@ -250,19 +238,6 @@ setIsLoading(false);
 }
 };
 
-// 1-Click fast login helpers
-const handleQuickLoginAhmed = () => {
-setEmail('ahmed@example.com');
-setPassword('password123');
-handleLoginSubmit('ahmed@example.com', 'password123');
-};
-
-const handleQuickLoginAdmin = () => {
-setEmail('admin@jalsah.com');
-setPassword('AdminPassword123!');
-handleLoginSubmit('admin@jalsah.com', 'AdminPassword123!');
-};
-
 const handleLogout = () => {
 logout();
 setSuccessMsg('تم تسجيل الخروج بنجاح.');
@@ -271,7 +246,7 @@ setSuccessMsg('');
 }, 1500);
 };
 
-const isAdmin = currentUser?.role === 'admin' || currentUser?.email === 'admin@jalsah.com' || currentUser?.username === 'admin_user';
+const isAdmin = currentUser?.role === 'admin';
 
 return (
 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/65 backdrop-blur-sm" dir="rtl">
@@ -486,58 +461,6 @@ className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-
 <span>إنشاء حساب جديد</span>
 </button>
 </div>
-
-{/* Quick Fast Switch (Only in Login Mode) */}
-{isLogin && (
-<div className="mb-4">
-<label className="block text-xs font-black text-gray-500 mb-2">
-الدخول السريع بحسابات الاختبار الجاهزة:
-</label>
-<div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-{/* Ahmed Player Button */}
-<button
-type="button"
-onClick={handleQuickLoginAhmed}
-disabled={isLoading}
-className="p-2.5 rounded-2xl border border-purple-200 bg-purple-50/60 hover:bg-purple-100/70 hover:border-purple-300 text-right transition-all flex flex-col justify-between cursor-pointer group"
->
-<div className="flex items-center justify-between mb-0.5">
-<span className="text-xs font-black text-purple-900 flex items-center gap-1">
-<Gamepad2 className="w-3.5 h-3.5 text-purple-600" />
-<span>لاعب عادي (أحمد)</span>
-</span>
-<span className="text-[9px] bg-purple-200/60 text-purple-800 px-1.5 py-0.2 rounded font-bold">
-لاعب
-</span>
-</div>
-<div className="text-[10px] text-gray-500 font-mono" dir="ltr">
-ahmed@example.com
-</div>
-</button>
-
-{/* Admin User Button */}
-<button
-type="button"
-onClick={handleQuickLoginAdmin}
-disabled={isLoading}
-className="p-2.5 rounded-2xl border border-amber-200 bg-amber-50/60 hover:bg-amber-100/70 hover:border-amber-300 text-right transition-all flex flex-col justify-between cursor-pointer group"
->
-<div className="flex items-center justify-between mb-0.5">
-<span className="text-xs font-black text-amber-900 flex items-center gap-1">
-<Crown className="w-3.5 h-3.5 text-amber-600" />
-<span>مدير المنصة (Admin)</span>
-</span>
-<span className="text-[9px] bg-amber-200/60 text-amber-800 px-1.5 py-0.2 rounded font-bold">
-مسؤول
-</span>
-</div>
-<div className="text-[10px] text-gray-500 font-mono" dir="ltr">
-admin@jalsah.com
-</div>
-</button>
-</div>
-</div>
-)}
 
 {/* Forms with Framer-Motion transition */}
 <AnimatePresence mode="wait">

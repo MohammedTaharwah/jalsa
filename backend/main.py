@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from typing import List
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
@@ -59,6 +60,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request, exc):
+    logger.exception("Unhandled error while processing %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "حدث خطأ داخلي في الخادم. راجع سجلات Backend."},
+    )
 
 # Include API Routers
 app.include_router(auth_router)
