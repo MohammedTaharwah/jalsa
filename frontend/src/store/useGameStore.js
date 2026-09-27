@@ -115,6 +115,9 @@ if (u.role === 'admin') return 'admin';
 if (typeof window !== 'undefined' && window.location.pathname === '/admin') {
 return 'admin';
 }
+if (typeof window !== 'undefined' && window.location.pathname === '/board') {
+return 'board';
+}
 } catch (e) {}
 return 'setup';
 })(),
