@@ -119,9 +119,15 @@ password: password
 const data = await parseApiResponse(res);
 
 setRegisteredEmail(email.trim());
-setIsOTPStep(true);
-setSuccessMsg(data.message || 'تم إنشاء الحساب بنجاح! أرسلنا رمز التحقق المكون من 6 أرقام إلى بريدك.');
-setTimeout(() => otpInputsRef.current[0]?.focus(), 150);
+if (data.access_token) {
+localStorage.setItem('jalsah_access_token', data.access_token);
+}
+setCurrentUser(data.user);
+if (typeof data.user.games_balance === 'number') {
+setAvailableGames(data.user.games_balance);
+}
+setSuccessMsg(data.message || 'تم إنشاء الحساب بنجاح!');
+setTimeout(() => onClose(), 800);
 } catch (err) {
 setErrorMsg(err.message || 'حدث خطأ أثناء التسجيل');
 } finally {

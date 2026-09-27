@@ -1,6 +1,5 @@
-import random
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -18,8 +17,6 @@ from app.schemas.auth import (
 from app.schemas.user import UserCreate, UserOut
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.core.deps import get_current_user
-from app.core.email import send_otp_email, EmailDeliveryError
-from app.config import settings
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 logger = logging.getLogger("qna_backend.auth")
@@ -28,8 +25,7 @@ logger = logging.getLogger("qna_backend.auth")
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
     """
-    تسجيل مستخدم جديد مع توليد وإرسال كود OTP مكون من 6 أرقام.
-    الحساب يبدأ كـ is_verified = False ولا يمكنه بدء اللعب إلا بعد التوثيق.
+    تسجيل مستخدم جديد وتفعيل الحساب مباشرة بدون تحقق بريد إلكتروني.
     """
     logger.info("Registration request received for %s", user_in.email)
 
@@ -49,16 +45,6 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
             detail="البريد الإلكتروني مسجل مسبقاً (Email already registered)"
         )
 
-    if not settings.RESEND_API_KEY or not settings.RESEND_FROM_EMAIL:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="خدمة البريد غير مهيأة. أضف RESEND_API_KEY وRESEND_FROM_EMAIL في Render."
-        )
-
-    # Generate 6-digit OTP and set 15 minutes expiry
-    otp_code = f"{random.randint(100000, 999999)}"
-    expiry = datetime.now(timezone.utc) + timedelta(minutes=15)
-
     hashed_pw = get_password_hash(user_in.password)
     new_user = User(
         username=user_in.username,
@@ -66,31 +52,21 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         hashed_password=hashed_pw,
         balance=user_in.balance or 0,
         games_balance=1,  # Default 1 free game session on signup
-        is_verified=False,
-        otp_code=otp_code,
-        otp_expires_at=expiry
+        is_verified=True,
+        otp_code=None,
+        otp_expires_at=None
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
 
-    try:
-        logger.info("Sending OTP email to %s via Resend", new_user.email)
-        send_otp_email(new_user.email, otp_code)
-        logger.info("OTP email sent successfully to %s", new_user.email)
-    except EmailDeliveryError as exc:
-        logger.exception("OTP email delivery failed for %s", new_user.email)
-        db.delete(new_user)
-        db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="تعذر إرسال رمز التحقق عبر Resend. تحقق من البريد الموثق ومفتاح Resend ثم أعد المحاولة.",
-        ) from exc
+    token = create_access_token(subject=new_user.id)
 
     return RegisterResponse(
-        message="تم إنشاء الحساب بنجاح. أرسلنا رمز التحقق إلى بريدك الإلكتروني.",
+        message="تم إنشاء الحساب بنجاح. أهلاً بك في منصة جلسة.",
         user=new_user,
-        requires_otp=True,
+        access_token=token,
+        requires_otp=False,
     )
 
 
