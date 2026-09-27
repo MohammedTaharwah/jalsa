@@ -4,6 +4,7 @@ import { GameSetup } from './components/GameSetup';
 import { GameBoard } from './components/GameBoard';
 import { GameOverScreen } from './components/GameOverScreen';
 import { AdminLayout } from './components/admin/AdminLayout';
+import { AuthModal } from './components/AuthModal';
 import { ShieldAlert, ArrowLeft } from 'lucide-react';
 
 const GameContainer = () => {
@@ -26,6 +27,18 @@ const GameContainer = () => {
   }, [setCurrentRoute]);
 
   const isAdmin = currentUser?.role === 'admin';
+
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4" dir="rtl">
+        <div className="text-center">
+          <h1 className="text-2xl font-black text-slate-900">سجّل الدخول للمتابعة</h1>
+          <p className="mt-2 text-sm text-slate-500">يجب تسجيل الدخول للوصول إلى جلسات اللعب.</p>
+        </div>
+        <AuthModal isOpen onClose={() => {}} />
+      </div>
+    );
+  }
 
   // ====================================================================
   // RBAC 1: If current user is ADMIN, lock to Admin Dashboard
