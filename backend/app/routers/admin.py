@@ -383,10 +383,13 @@ async def import_questions_json(
         if correct_answer not in [str(option) for option in options]:
             raise HTTPException(status_code=422, detail=f"correct_answer للسؤال رقم {index + 1} غير موجود ضمن الخيارات.")
 
+        shuffled_options = [str(option) for option in options]
+        random.shuffle(shuffled_options)
+
         question = Question(
             category_id=category.id,
             question_text=str(item["question_text"]).strip(),
-            options_json=options,
+            options_json=shuffled_options,
             correct_answer=correct_answer,
             points_level=int(item.get("points_level") or 200),
             media_url=item.get("media_url"),
@@ -397,6 +400,20 @@ async def import_questions_json(
 
     db.commit()
     return {"status": "success", "imported": len(saved), "message": "تم استيراد الأسئلة إلى طابور المراجعة."}
+
+
+@router.post("/questions/approve-all-pending")
+def approve_all_pending_questions(
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_admin)
+):
+    """Approve every question currently waiting in the review queue."""
+    updated_count = db.query(Question).filter(Question.status == "pending").update(
+        {Question.status: "approved"}, synchronize_session=False
+    )
+    db.commit()
+    logger.info("Admin %s approved %s pending questions", admin_user.username, updated_count)
+    return {"status": "success", "approved": updated_count}
 
 
 @router.patch("/questions/{question_id}/status", response_model=QuestionOut)

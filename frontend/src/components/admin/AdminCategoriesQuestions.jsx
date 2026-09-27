@@ -264,6 +264,22 @@ export const AdminCategoriesQuestions = () => {
     }
   };
 
+  const handleApproveAllPending = async () => {
+    if (!window.confirm('هل تريد اعتماد جميع الأسئلة الموجودة في طابور المراجعة؟')) return;
+
+    try {
+      const response = await authFetch('/api/admin/questions/approve-all-pending', {
+        method: 'POST'
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'تعذر اعتماد الأسئلة');
+      showToast(`تم اعتماد ${data.approved} سؤال بنجاح.`);
+      fetchQuestions();
+    } catch (error) {
+      showToast(error.message || 'تعذر اعتماد الأسئلة');
+    }
+  };
+
   const getCategoryName = (catId) => {
     const found = categories.find((c) => c.id === catId);
     return found ? found.name : `فئة #${catId}`;
@@ -489,6 +505,14 @@ export const AdminCategoriesQuestions = () => {
                 disabled={isImporting}
               />
             </label>
+
+            <button
+              type="button"
+              onClick={handleApproveAllPending}
+              className="py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
+            >
+              <CheckCircle2 className="w-4 h-4" /> اعتماد الكل
+            </button>
           </div>
 
           {/* Questions Table */}
