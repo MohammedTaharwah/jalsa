@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     SMTP_USE_SSL: bool = False
     EMAILS_FROM_EMAIL: str = ""
     EMAILS_FROM_NAME: str = ""
+    RESEND_API_KEY: str = ""
+    RESEND_FROM_EMAIL: str = ""
 
     @property
     def smtp_hostname(self) -> str:

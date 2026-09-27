@@ -1,8 +1,6 @@
 import logging
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.utils import formataddr
+
+import httpx
 
 from app.config import settings
 
@@ -10,28 +8,21 @@ logger = logging.getLogger("qna_backend.email")
 
 
 class EmailDeliveryError(Exception):
-    """Raised when an OTP email cannot be delivered via SMTP."""
+    """Raised when an OTP email cannot be delivered via the email API."""
 
 
 def send_otp_email(to_email: str, otp_code: str) -> bool:
     """
-    إرسال كود التحقق OTP المكون من 6 أرقام إلى بريد المستخدم عبر SMTP الحقيقي.
-    يتطلب SMTP_SERVER / SMTP_USER / SMTP_PASSWORD (Brevo أو Gmail).
+    إرسال كود التحقق OTP عبر Resend HTTPS API.
     """
-    logger.info(
-        "SMTP configuration check: host=%s port=%s user_configured=%s sender=%s",
-        settings.smtp_hostname,
-        settings.SMTP_PORT,
-        bool(settings.SMTP_USER),
-        settings.mail_from_address,
-    )
+    logger.info("Resend configuration check: api_key_configured=%s sender=%s",
+                bool(settings.RESEND_API_KEY), settings.RESEND_FROM_EMAIL)
 
-    if not settings.is_smtp_configured:
+    if not settings.RESEND_API_KEY or not settings.RESEND_FROM_EMAIL:
         raise EmailDeliveryError(
-            "إعدادات SMTP غير مكتملة. أضف SMTP_SERVER و SMTP_USER و SMTP_PASSWORD في ملف .env."
+            "إعدادات خدمة البريد غير مكتملة. أضف RESEND_API_KEY و RESEND_FROM_EMAIL في Render."
         )
 
-    sender = settings.mail_from_address
     subject = "رمز التحقق الخاص بك في منصة جلسة"
 
     html_content = f"""
@@ -45,25 +36,26 @@ def send_otp_email(to_email: str, otp_code: str) -> bool:
     """
 
     try:
-        message = MIMEMultipart("alternative")
-        message["Subject"] = subject
-        message["From"] = formataddr((settings.mail_from_name, sender))
-        message["To"] = to_email
-        message.attach(MIMEText(html_content, "html", "utf-8"))
+        response = httpx.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {settings.RESEND_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "from": settings.RESEND_FROM_EMAIL,
+                "to": [to_email],
+                "subject": subject,
+                "html": html_content,
+            },
+            timeout=20,
+        )
+        response.raise_for_status()
 
-        smtp_client = smtplib.SMTP_SSL if settings.SMTP_USE_SSL else smtplib.SMTP
-        with smtp_client(settings.smtp_hostname, settings.SMTP_PORT, timeout=20) as server:
-            server.ehlo()
-            if not settings.SMTP_USE_SSL:
-                server.starttls()
-                server.ehlo()
-            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.sendmail(sender, [to_email], message.as_string())
-
-        logger.info("OTP email sent via SMTP to %s", to_email)
+        logger.info("OTP email sent via Resend to %s", to_email)
         return True
     except Exception as exc:
-        logger.exception("Failed to send OTP email to %s", to_email)
+        logger.exception("Failed to send OTP email via Resend to %s", to_email)
         raise EmailDeliveryError(
-            "تعذر إرسال رسالة التحقق إلى بريدك. تحقق من إعدادات SMTP أو أعد المحاولة."
+            "تعذر إرسال رسالة التحقق. تحقق من إعدادات Resend أو أعد المحاولة."
         ) from exc

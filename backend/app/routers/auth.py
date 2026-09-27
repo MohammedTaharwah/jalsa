@@ -49,10 +49,10 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
             detail="البريد الإلكتروني مسجل مسبقاً (Email already registered)"
         )
 
-    if not settings.is_smtp_configured:
+    if not settings.RESEND_API_KEY or not settings.RESEND_FROM_EMAIL:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="خدمة البريد غير مهيأة. أضف بيانات SMTP في ملف .env ثم أعد تشغيل الباك إند."
+            detail="خدمة البريد غير مهيأة. أضف RESEND_API_KEY وRESEND_FROM_EMAIL في Render."
         )
 
     # Generate 6-digit OTP and set 15 minutes expiry
@@ -158,10 +158,10 @@ def resend_otp(resend_data: OTPResendRequest, db: Session = Depends(get_db)):
     if user.is_verified:
         return {"message": "الحساب مفعل بالفعل ولا يحتاج لرمز تحقق.", "is_verified": True}
 
-    if not settings.is_smtp_configured:
+    if not settings.RESEND_API_KEY or not settings.RESEND_FROM_EMAIL:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="خدمة البريد غير مهيأة. أضف بيانات SMTP في ملف .env ثم أعد تشغيل الباك إند."
+            detail="خدمة البريد غير مهيأة. أضف RESEND_API_KEY وRESEND_FROM_EMAIL في Render."
         )
 
     # Generate new OTP
