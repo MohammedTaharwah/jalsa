@@ -111,7 +111,7 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-@app.get("/", tags=["System"])
+@app.api_route("/", methods=["GET", "HEAD"], tags=["System"])
 def read_root():
     return {
         "status": "online",
@@ -130,7 +130,7 @@ def read_root():
     }
 
 
-@app.get("/health", tags=["System"])
+@app.api_route("/health", methods=["GET", "HEAD"], tags=["System"])
 def health_check():
     """Verify backend and database connectivity."""
     db_status = "disconnected"
