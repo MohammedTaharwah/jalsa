@@ -119,12 +119,19 @@ password: password
 const data = await parseApiResponse(res);
 
 setRegisteredEmail(email.trim());
+
+if (data.requires_otp) {
+  setIsOTPStep(true);
+  setSuccessMsg(data.message || 'تم إرسال رمز التحقق إلى بريدك الإلكتروني.');
+  return;
+}
+
 if (data.access_token) {
-localStorage.setItem('jalsah_access_token', data.access_token);
+  localStorage.setItem('jalsah_access_token', data.access_token);
 }
 setCurrentUser(data.user);
-if (typeof data.user.games_balance === 'number') {
-setAvailableGames(data.user.games_balance);
+if (typeof data.user?.games_balance === 'number') {
+  setAvailableGames(data.user.games_balance);
 }
 setSuccessMsg(data.message || 'تم إنشاء الحساب بنجاح!');
 setTimeout(() => onClose(), 800);

@@ -46,27 +46,36 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         )
 
     hashed_pw = get_password_hash(user_in.password)
+    import random
+    from datetime import timedelta
+    otp_code = f"{random.randint(100000, 999999)}"
+
     new_user = User(
         username=user_in.username,
         email=user_in.email,
         hashed_password=hashed_pw,
         balance=user_in.balance or 0,
         games_balance=1,  # Default 1 free game session on signup
-        is_verified=True,
-        otp_code=None,
-        otp_expires_at=None
+        is_verified=False,
+        otp_code=otp_code,
+        otp_expires_at=datetime.now(timezone.utc) + timedelta(minutes=15)
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
 
-    token = create_access_token(subject=new_user.id)
+    # Dispatch OTP via Brevo / Resend HTTP API
+    try:
+        from app.core.email import send_otp_email
+        send_otp_email(new_user.email, otp_code)
+    except Exception as exc:
+        logger.warning(f"Registration email delivery notice: {exc}")
 
     return RegisterResponse(
-        message="تم إنشاء الحساب بنجاح. أهلاً بك في منصة جلسة.",
+        message="تم إنشاء الحساب بنجاح. أرسلنا رمز التحقق (OTP) إلى بريدك الإلكتروني.",
         user=new_user,
-        access_token=token,
-        requires_otp=False,
+        access_token=None,
+        requires_otp=True,
     )
 
 

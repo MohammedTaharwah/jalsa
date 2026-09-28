@@ -172,19 +172,37 @@ try {
 const response = await fetch(`${API_BASE}/categories/?limit=100`);
 if (!response.ok) throw new Error('تعذر تحميل الفئات من قاعدة البيانات.');
 const databaseCategories = await response.json();
-const mappedCategories = databaseCategories.map((category) => {
-const metadata = CATEGORIES_DATA.find((item) => item.id === categoryKeyByName[category.name]);
-return {
-...metadata,
-id: categoryKeyByName[category.name] || `db-${category.id}`,
-dbId: category.id,
-name: category.name,
-desc: category.description || metadata?.desc || ''
-};
-});
+const GRADIENT_COLORS = [
+  'from-purple-600 to-indigo-600',
+  'from-orange-500 to-amber-500',
+  'from-blue-600 to-cyan-500',
+  'from-rose-500 to-pink-600',
+  'from-emerald-500 to-teal-600',
+  'from-amber-500 to-yellow-500',
+  'from-violet-600 to-purple-700',
+  'from-teal-500 to-emerald-600'
+];
+
+const mappedCategories = databaseCategories.map((category, idx) => ({
+  id: category.id,
+  dbId: category.id,
+  name: category.name,
+  desc: category.description || 'فئة التحدي والأسئلة',
+  imageUrl: category.image_url || null,
+  color: GRADIENT_COLORS[idx % GRADIENT_COLORS.length],
+  iconName: 'Sparkles',
+  count: 6
+}));
+
 setAvailableCategories(mappedCategories);
-setTeam1Categories(mappedCategories.slice(0, 3).map((category) => category.id));
-setTeam2Categories(mappedCategories.slice(3, 6).map((category) => category.id));
+if (mappedCategories.length >= 6) {
+  setTeam1Categories(mappedCategories.slice(0, 3).map((c) => c.id));
+  setTeam2Categories(mappedCategories.slice(3, 6).map((c) => c.id));
+} else {
+  const half = Math.ceil(mappedCategories.length / 2);
+  setTeam1Categories(mappedCategories.slice(0, half).map((c) => c.id));
+  setTeam2Categories(mappedCategories.slice(half).map((c) => c.id));
+}
 } catch (error) {
 setCategoriesError(error.message || 'تعذر تحميل الفئات.');
 } finally {

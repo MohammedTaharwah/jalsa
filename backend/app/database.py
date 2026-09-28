@@ -60,13 +60,5 @@ def init_db():
             conn.commit()
 
         logger.info("Database tables and columns initialized successfully.")
-
-        # Seed initial categories and questions if database is empty
-        try:
-            from app.seed import seed_database_if_empty
-            with SessionLocal() as db_session:
-                seed_database_if_empty(db_session)
-        except Exception as seed_err:
-            logger.warning(f"Seeding notice: {seed_err}")
     except Exception as e:
         logger.error(f"Error initializing database tables: {e}")

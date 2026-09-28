@@ -303,15 +303,24 @@ user_id: currentUserId || null
 
 if (res.ok) {
 const dbCategories = await res.json();
-if (Array.isArray(dbCategories) && dbCategories.length === 6) {
-newBoard = dbCategories.map((col, colIdx) => {
+if (Array.isArray(dbCategories) && dbCategories.length >= 4) {
+const selectedCols = dbCategories.slice(0, 6);
+const midPoint = Math.ceil(selectedCols.length / 2);
+newBoard = selectedCols.map((col, colIdx) => {
 const catKey = catKeys[colIdx] || col.category_id;
-const meta = CATEGORIES_DATA.find(c => c.id === catKey || c.name === col.category_name) || {
+const meta = {
 id: catKey,
 name: col.category_name,
-color: 'from-purple-600 to-indigo-600'
+color: [
+'from-purple-600 to-indigo-600',
+'from-orange-500 to-amber-500',
+'from-blue-600 to-cyan-500',
+'from-rose-500 to-pink-600',
+'from-emerald-500 to-teal-600',
+'from-amber-500 to-yellow-500'
+][colIdx % 6]
 };
-const ownerTeam = colIdx < 3 ? configuredTeams[0] : (configuredTeams[1] || configuredTeams[0]);
+const ownerTeam = colIdx < midPoint ? configuredTeams[0] : (configuredTeams[1] || configuredTeams[0]);
 
 const tiles = col.tiles.map((tileData, rowIdx) => {
 const q = tileData.question;
