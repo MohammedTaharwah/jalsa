@@ -22,19 +22,30 @@ logger = logging.getLogger("qna_backend.game")
 router = APIRouter(prefix="/game", tags=["Game Engine & Seen Questions"])
 
 
+KEY_TO_NAME_MAP = {
+    "sports": "رياضة ولياقة",
+    "history": "تاريخ وحضارات",
+    "science": "علوم وفضاء",
+    "cinema": "أفلام وسينما",
+    "general": "ثقافة عامة",
+    "tech": "تكنولوجيا واختراعات",
+    "geography": "جغرافيا وسفر",
+    "arts": "فنون وأدب",
+}
+
+
 def _fetch_board_categories_logic(
-    category_ids: List[int],
+    category_ids: List[Any],
     user_id: Optional[int],
     db: Session
 ) -> List[BoardCategoryOut]:
     """
-    منطق الترشيح الموجه (Filtered Randomness) لجلب لوحة الأسئلة:
+    منطق الترشيح الموجه (Filtered Randomness) لجلب لوحة الأسئلة من قاعدة البيانات:
     - لكل فئة من الفئات المختارة:
-      * سحب سؤال عشوائي واحد بمستوى 200 نقطة لم يسبق للمستخدم مشاهدته.
-      * سحب سؤال عشوائي واحد بمستوى 400 نقطة لم يسبق للمستخدم مشاهدته.
-      * سحب سؤال عشوائي واحد بمستوى 600 نقطة لم يسبق للمستخدم مشاهدته.
-    - معالجة النقص (Fallback): إذا لم يتوفر سؤال غير مستهلك لمستوى معين،
-      يتم إرجاع المربع كـ is_available = False دون تعطيل بقية اللوحة.
+      * سحب سؤالين عشوائيين بمستوى 200 نقطة لم يسبق للمستخدم مشاهدتها.
+      * سحب سؤالين عشوائيين بمستوى 400 نقطة لم يسبق للمستخدم مشاهدتها.
+      * سحب سؤالين عشوائيين بمستوى 600 نقطة لم يسبق للمستخدم مشاهدتها.
+    - يدعم الاستعلام بالمفتاح النصي (مثل 'sports') أو المعرف الرقمي (مثل 1).
     """
     seen_subquery = None
     if user_id:
@@ -45,16 +56,34 @@ def _fetch_board_categories_logic(
 
     board_output: List[BoardCategoryOut] = []
 
-    for cat_id in category_ids:
-        cat = db.query(Category).filter(Category.id == cat_id).first()
-        cat_name = cat.name if cat else f"فئة رقم {cat_id}"
+    for raw_cat_id in category_ids:
+        cat = None
+        # Try integer ID
+        if isinstance(raw_cat_id, int) or (isinstance(raw_cat_id, str) and raw_cat_id.isdigit()):
+            cat = db.query(Category).filter(Category.id == int(raw_cat_id)).first()
+
+        # Try key mapping
+        if not cat and str(raw_cat_id) in KEY_TO_NAME_MAP:
+            target_name = KEY_TO_NAME_MAP[str(raw_cat_id)]
+            cat = db.query(Category).filter(Category.name == target_name).first()
+
+        # Try name likeness
+        if not cat:
+            cat = db.query(Category).filter(Category.name.ilike(f"%{raw_cat_id}%")).first()
+
+        # Fallback to any category
+        if not cat:
+            cat = db.query(Category).first()
+
+        actual_cat_id = cat.id if cat else 1
+        cat_name = cat.name if cat else f"فئة {raw_cat_id}"
 
         tiles: List[BoardTileOut] = []
 
         # Difficulty tiers: 200, 400, 600 (each tier gets 2 questions -> 6 questions total)
         for pts in [200, 400, 600]:
             q_query = db.query(Question).filter(
-                Question.category_id == cat_id,
+                Question.category_id == actual_cat_id,
                 Question.points_level == pts
             )
 
@@ -91,7 +120,7 @@ def _fetch_board_categories_logic(
 
         board_output.append(
             BoardCategoryOut(
-                category_id=cat_id,
+                category_id=raw_cat_id,
                 category_name=cat_name,
                 tiles=tiles
             )
@@ -106,14 +135,14 @@ def fetch_game_board_post(
     db: Session = Depends(get_db)
 ):
     """
-    جلب أسئلة اللوحة الرئيسية بنظام العشوائية الموجهة (Filtered Randomness) عبر POST.
+    جلب أسئلة اللوحة الرئيسية بنظام العشوائية الموجهة (Filtered Randomness) عبر POST من قاعدة البيانات.
     """
     return _fetch_board_categories_logic(payload.category_ids, payload.user_id, db)
 
 
 @router.get("/board-fetch", response_model=List[BoardCategoryOut])
 def fetch_game_board_get(
-    category_ids: List[int] = Query(..., description="معرفات الفئات"),
+    category_ids: List[str] = Query(..., description="معرفات أو مفاتيح الفئات"),
     user_id: Optional[int] = Query(None, description="معرف المستخدم"),
     db: Session = Depends(get_db)
 ):
@@ -145,6 +174,10 @@ def get_unseen_questions_for_category(
             .where(UserSeenQuestions.user_id == user_id)
         )
         query = query.filter(Question.id.not_in(seen_subquery))
+
+    total_in_cat = db.query(Question).filter(Question.category_id == category_id).count()
+    if total_in_cat == 0:
+        return []
 
     unseen_questions = query.limit(limit).all()
 

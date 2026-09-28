@@ -269,9 +269,9 @@ get().setAvailableGames(Math.max(0, current - 1));
 },
 
 /**
-* تهيئة اللعبة وبناء اللوحة وشبكة الأسئلة
+* تهيئة اللعبة وبناء اللوحة وشبكة الأسئلة مباشرة من قاعدة البيانات
 */
-initGame: (configuredTeams, selectedCategoryIds = ['sports', 'history', 'science', 'cinema', 'general', 'tech']) => {
+initGame: async (configuredTeams, selectedCategoryIds = ['sports', 'history', 'science', 'cinema', 'general', 'tech']) => {
 const currentUserId = get().currentUser?.id;
 const seenQuestionIds = loadSeenQuestionIds(currentUserId);
 let catKeys = selectedCategoryIds && selectedCategoryIds.length >= 4
@@ -288,12 +288,95 @@ catKeys = [...catKeys, ...extra];
 catKeys = catKeys.slice(0, 6);
 }
 
-const newBoard = catKeys.map((catKey, colIdx) => {
+let newBoard = null;
+
+// 1. Fetch questions directly from PostgreSQL Database via /game/board-fetch
+try {
+const res = await fetch(`${API_BASE}/game/board-fetch`, {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+category_ids: catKeys,
+user_id: currentUserId || null
+})
+});
+
+if (res.ok) {
+const dbCategories = await res.json();
+if (Array.isArray(dbCategories) && dbCategories.length === 6) {
+newBoard = dbCategories.map((col, colIdx) => {
+const catKey = catKeys[colIdx] || col.category_id;
+const meta = CATEGORIES_DATA.find(c => c.id === catKey || c.name === col.category_name) || {
+id: catKey,
+name: col.category_name,
+color: 'from-purple-600 to-indigo-600'
+};
+const ownerTeam = colIdx < 3 ? configuredTeams[0] : (configuredTeams[1] || configuredTeams[0]);
+
+const tiles = col.tiles.map((tileData, rowIdx) => {
+const q = tileData.question;
+const pts = tileData.points || (rowIdx < 2 ? 200 : rowIdx < 4 ? 400 : 600);
+
+if (!q || !tileData.is_available) {
+return {
+id: `${catKey}-${pts}-${rowIdx}`,
+categoryId: catKey,
+categoryName: col.category_name,
+categoryMeta: meta,
+points: pts,
+isUsed: false,
+is_available: false,
+status: 'exhausted',
+winnerTeamId: null,
+isMystery: false,
+question: null
+};
+}
+
+return {
+id: `${catKey}-${pts}-${rowIdx}`,
+categoryId: catKey,
+categoryName: col.category_name,
+categoryMeta: meta,
+points: pts,
+isUsed: false,
+status: 'available',
+winnerTeamId: null,
+isMystery: (rowIdx === 2 || rowIdx === 3) && colIdx % 2 === 0,
+question: {
+id: q.id,
+question_text: q.question_text,
+options_json: shuffleArray(q.options_json || []),
+correct_answer: q.correct_answer,
+points: q.points_level || pts,
+category_name: col.category_name
+}
+};
+});
+
+return {
+key: catKey,
+categoryId: catKey,
+name: col.category_name,
+categoryName: col.category_name,
+categoryMeta: meta,
+chosenByTeam: ownerTeam,
+tiles: tiles
+};
+});
+}
+}
+} catch (dbErr) {
+console.warn('Backend board-fetch error, using fallback:', dbErr);
+}
+
+// 2. Fallback only if database is unreachable (offline resilience)
+if (!newBoard) {
+newBoard = catKeys.map((catKey, colIdx) => {
 const meta = CATEGORIES_DATA.find(c => c.id === catKey) || CATEGORIES_DATA[0];
 const questionsList = shuffleArray(BATTLEGROUND_QUESTIONS[catKey] || BATTLEGROUND_QUESTIONS.general);
 const ownerTeam = colIdx < 3 ? configuredTeams[0] : (configuredTeams[1] || configuredTeams[0]);
 
-// 6 question tiles per category: [200, 200, 400, 400, 600, 600]
 const pointTiers = [200, 200, 400, 400, 600, 600];
 const tierCounters = { 200: 0, 400: 0, 600: 0 };
 
@@ -333,7 +416,7 @@ points: pts,
 isUsed: false,
 status: 'available',
 winnerTeamId: null,
-isMystery: (rowIdx === 2 || rowIdx === 3) && colIdx % 2 === 0, // Mystery cue
+isMystery: (rowIdx === 2 || rowIdx === 3) && colIdx % 2 === 0,
 question: randomizedQuestion
 };
 });
@@ -348,6 +431,7 @@ chosenByTeam: ownerTeam,
 tiles: tiles
 };
 });
+}
 
 set({
 gameStage: 'playing',
@@ -388,8 +472,8 @@ gameBanner: null
 },
 
 // Alias for backward compatibility
-startBattlegroundGame: (configuredTeams, selectedCategoryIds) => {
-get().initGame(configuredTeams, selectedCategoryIds);
+startBattlegroundGame: async (configuredTeams, selectedCategoryIds) => {
+await get().initGame(configuredTeams, selectedCategoryIds);
 },
 
 /**

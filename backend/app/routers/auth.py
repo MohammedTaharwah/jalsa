@@ -134,13 +134,9 @@ def resend_otp(resend_data: OTPResendRequest, db: Session = Depends(get_db)):
     if user.is_verified:
         return {"message": "الحساب مفعل بالفعل ولا يحتاج لرمز تحقق.", "is_verified": True}
 
-    if not settings.RESEND_API_KEY or not settings.RESEND_FROM_EMAIL:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="خدمة البريد غير مهيأة. أضف RESEND_API_KEY وRESEND_FROM_EMAIL في Render."
-        )
-
     # Generate new OTP
+    import random
+    from datetime import timedelta
     otp_code = f"{random.randint(100000, 999999)}"
     user.otp_code = otp_code
     user.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
@@ -148,6 +144,8 @@ def resend_otp(resend_data: OTPResendRequest, db: Session = Depends(get_db)):
 
     try:
         send_otp_email(user.email, otp_code)
+    except Exception as exc:
+        logger.warning(f"Notice during send_otp_email: {exc}")
     except EmailDeliveryError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

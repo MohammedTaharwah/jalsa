@@ -29,5 +29,10 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str = ""
     RESEND_FROM_EMAIL: str = ""
 
+    # Brevo (Sendinblue) HTTP API Configuration
+    BREVO_API_KEY: str = ""
+    BREVO_SENDER_EMAIL: str = ""
+    BREVO_SENDER_NAME: str = "منصة جلسة"
+
 
 settings = Settings()

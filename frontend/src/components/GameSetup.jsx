@@ -387,20 +387,6 @@ text: ' نفد رصيدك من الألعاب! يرجى شحن رصيدك عبر
 return;
 }
 
-// 3. Check question exhaustion with backend
-try {
-// Check first category as a probe
-const probeRes = await fetch(`${API_BASE}/game/questions/unseen?category_id=1&user_id=${currentUser?.id || 1}`);
-if (probeRes.status === 404) {
-const errData = await probeRes.json();
-if (errData.detail && errData.detail.includes('استهلكت')) {
-setExhaustionAlert('لقد استهلكت جميع أسئلة هذه الفئة! اختر فئة أخرى أو قم بتوليد أسئلة جديدة.');
-return;
-}
-}
-} catch (e) {
-// Continue offline
-}
 
 const validatedTeams = teams.map((t, idx) => ({
 ...t,
@@ -414,7 +400,7 @@ try {
 fetch(`${API_BASE}/promo/consume-game`, { method: 'POST' });
 } catch (e) {}
 
-startBattlegroundGame(validatedTeams, selectedCategories);
+await startBattlegroundGame(validatedTeams, selectedCategories);
 };
 
 // Slide Animation Variants

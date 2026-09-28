@@ -1,5 +1,4 @@
-from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 from pydantic import BaseModel, Field
 from app.schemas.question import QuestionOut
 
@@ -16,7 +15,7 @@ class SeenQuestionsResponse(BaseModel):
 
 
 class BoardFetchRequest(BaseModel):
-    category_ids: List[int] = Field(..., min_length=1, description="قائمة معرفات الفئات المختارة للوحة")
+    category_ids: List[Union[int, str]] = Field(..., min_length=1, description="قائمة معرفات أو مفاتيح الفئات المختارة للوحة")
     user_id: Optional[int] = Field(None, description="معرف المستخدم لاستبعاد الأسئلة المشاهدة")
 
 
@@ -28,6 +27,6 @@ class BoardTileOut(BaseModel):
 
 
 class BoardCategoryOut(BaseModel):
-    category_id: int
+    category_id: Union[int, str]
     category_name: str
     tiles: List[BoardTileOut]
