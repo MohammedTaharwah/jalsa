@@ -35,14 +35,41 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     ).first()
 
     if existing_user:
+        # إذا كان الحساب موجوداً ولكنه غير موثق بعد، نجدد له رمز OTP ونرسله بدلاً من حظره بـ 400
+        if not existing_user.is_verified and existing_user.email == user_in.email:
+            import random
+            from datetime import timedelta
+            otp_code = f"{random.randint(100000, 999999)}"
+            existing_user.otp_code = otp_code
+            existing_user.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
+            if user_in.password:
+                existing_user.hashed_password = get_password_hash(user_in.password)
+            if user_in.username:
+                existing_user.username = user_in.username
+            db.commit()
+            db.refresh(existing_user)
+
+            try:
+                from app.core.email import send_otp_email
+                send_otp_email(existing_user.email, otp_code)
+            except Exception as exc:
+                logger.warning(f"Registration unverified resend notice: {exc}")
+
+            return RegisterResponse(
+                message="الحساب مسجل ولكنه غير موثق بعد. تم إرسال رمز تحقق جديد (OTP) لتأكيد الحساب.",
+                user=existing_user,
+                access_token=None,
+                requires_otp=True,
+            )
+
         if existing_user.username == user_in.username:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="اسم المستخدم مسجل مسبقاً (Username already taken)"
+                detail="اسم المستخدم مسجل مسبقاً (يرجى اختيار اسم مستخدم آخر أو تسجيل الدخول)"
             )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="البريد الإلكتروني مسجل مسبقاً (Email already registered)"
+            detail="البريد الإلكتروني مسجل ومفعّل مسبقاً (يرجى التوجه إلى تسجيل الدخول)"
         )
 
     hashed_pw = get_password_hash(user_in.password)
