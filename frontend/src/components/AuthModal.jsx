@@ -122,7 +122,11 @@ setRegisteredEmail(email.trim());
 
 if (data.requires_otp) {
   setIsOTPStep(true);
-  setSuccessMsg(data.message || 'تم إرسال رمز التحقق إلى بريدك الإلكتروني.');
+  if (data.debug_otp) {
+    setSuccessMsg(`رمز التحقق لتفعيل حسابك هو: [ ${data.debug_otp} ] (أدخله في المربعات أدناه)`);
+  } else {
+    setSuccessMsg(data.message || 'تم إرسال رمز التحقق إلى بريدك الإلكتروني.');
+  }
   return;
 }
 
@@ -241,7 +245,11 @@ email: registeredEmail
 
 const data = await parseApiResponse(res);
 
-setSuccessMsg(data.message || 'تم إرسال رمز تحقق جديد إلى بريدك الإلكتروني!');
+if (data.debug_otp) {
+  setSuccessMsg(`رمز التحقق الجديد الخاص بك هو: [ ${data.debug_otp} ]`);
+} else {
+  setSuccessMsg(data.message || 'تم إرسال رمز تحقق جديد إلى بريدك الإلكتروني!');
+}
 setOtp(['', '', '', '', '', '']);
 otpInputsRef.current[0]?.focus();
 } catch (err) {

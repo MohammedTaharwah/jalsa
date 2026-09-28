@@ -90,13 +90,9 @@ def send_otp_email(to_email: str, otp_code: str) -> bool:
         except Exception as e:
             logger.warning("Resend HTTPS API request failed: %s", e)
 
-    # 3. إذا لم يتم تفعيل مفاتيح البريد بعد، لا نقوم بإسقاط السيرفر، بل نعتمد على الكود المطبوع في Logs
-    if not settings.BREVO_API_KEY and not settings.RESEND_API_KEY:
-        logger.warning(
-            "لم يتم تعيين BREVO_API_KEY أو RESEND_API_KEY في متغيرات البيئة. "
-            "تمت طباعة الرمز [%s] في الـ Logs بنجاح.",
-            otp_code
-        )
-        return True
-
-    return True
+    # إذا لم تنجح أي خدمة بريد
+    logger.warning(
+        "تعذر تسليم الإيميل عبر Brevo أو Resend. تم تسجيل الرمز [%s] في الـ Logs.",
+        otp_code
+    )
+    return False

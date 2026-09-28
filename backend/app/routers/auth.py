@@ -49,9 +49,10 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
             db.commit()
             db.refresh(existing_user)
 
+            email_delivered = False
             try:
                 from app.core.email import send_otp_email
-                send_otp_email(existing_user.email, otp_code)
+                email_delivered = send_otp_email(existing_user.email, otp_code)
             except Exception as exc:
                 logger.warning(f"Registration unverified resend notice: {exc}")
 
@@ -60,6 +61,7 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
                 user=existing_user,
                 access_token=None,
                 requires_otp=True,
+                debug_otp=None if email_delivered else otp_code
             )
 
         if existing_user.username == user_in.username:
@@ -92,9 +94,10 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     db.refresh(new_user)
 
     # Dispatch OTP via Brevo / Resend HTTP API
+    email_delivered = False
     try:
         from app.core.email import send_otp_email
-        send_otp_email(new_user.email, otp_code)
+        email_delivered = send_otp_email(new_user.email, otp_code)
     except Exception as exc:
         logger.warning(f"Registration email delivery notice: {exc}")
 
@@ -103,6 +106,7 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         user=new_user,
         access_token=None,
         requires_otp=True,
+        debug_otp=None if email_delivered else otp_code
     )
 
 
@@ -178,19 +182,16 @@ def resend_otp(resend_data: OTPResendRequest, db: Session = Depends(get_db)):
     user.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
     db.commit()
 
+    email_delivered = False
     try:
-        send_otp_email(user.email, otp_code)
+        email_delivered = send_otp_email(user.email, otp_code)
     except Exception as exc:
         logger.warning(f"Notice during send_otp_email: {exc}")
-    except EmailDeliveryError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=str(exc)
-        ) from exc
 
     return {
         "success": True,
         "message": "تم إرسال رمز تحقق جديد إلى بريدك الإلكتروني.",
+        "debug_otp": None if email_delivered else otp_code
     }
 
 

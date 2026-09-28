@@ -33,3 +33,4 @@ class RegisterResponse(BaseModel):
     user: UserOut
     access_token: Optional[str] = None
     requires_otp: bool = False
+    debug_otp: Optional[str] = None
