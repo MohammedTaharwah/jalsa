@@ -129,8 +129,27 @@ currentUser,
 setCurrentUser
 } = useGame();
 
-// Wizard Step State (1 to 4)
-const [currentStep, setCurrentStep] = useState(1);
+const SETUP_STEP_KEY = 'jalsah_setup_step';
+const SETUP_TEAMS_KEY = 'jalsah_setup_teams';
+const SETUP_T1_CATS_KEY = 'jalsah_setup_t1_cats';
+const SETUP_T2_CATS_KEY = 'jalsah_setup_t2_cats';
+
+// Wizard Step State (1 to 4) - persisted across page refresh
+const [currentStep, setCurrentStep] = useState(() => {
+try {
+const saved = sessionStorage.getItem(SETUP_STEP_KEY);
+const n = parseInt(saved, 10);
+return (n >= 1 && n <= 4) ? n : 1;
+} catch (e) {
+return 1;
+}
+});
+
+useEffect(() => {
+try {
+sessionStorage.setItem(SETUP_STEP_KEY, String(currentStep));
+} catch (e) {}
+}, [currentStep]);
 
 // User Verification & Promo Code State
 const [isOTPOpen, setIsOTPOpen] = useState(false);
@@ -153,15 +172,53 @@ const [promoFeedback, setPromoFeedback] = useState(null);
 // Questions Exhaustion Alert State
 const [exhaustionAlert, setExhaustionAlert] = useState(null);
 
-// Step 1: Teams State with Loadout (2 powerups per team)
-const [teams, setTeams] = useState([
+// Step 1: Teams State with Loadout (2 powerups per team) - persisted across refresh
+const [teams, setTeams] = useState(() => {
+try {
+const saved = sessionStorage.getItem(SETUP_TEAMS_KEY);
+if (saved) return JSON.parse(saved);
+} catch (e) {}
+return [
 { id: 1, name: 'فريق الصقور', iconName: 'Shield', color: 'purple', loadout: ['double', 'steal'] },
 { id: 2, name: 'فريق الأسود', iconName: 'Flame', color: 'orange', loadout: ['freeze', 'fifty'] }
-]);
+];
+});
 
-// Step 2: Turn-based Category Selection (3 categories for Team 1, 3 for Team 2)
-const [team1Categories, setTeam1Categories] = useState([]);
-const [team2Categories, setTeam2Categories] = useState([]);
+useEffect(() => {
+try {
+sessionStorage.setItem(SETUP_TEAMS_KEY, JSON.stringify(teams));
+} catch (e) {}
+}, [teams]);
+
+// Step 2: Turn-based Category Selection (3 categories for Team 1, 3 for Team 2) - persisted across refresh
+const [team1Categories, setTeam1Categories] = useState(() => {
+try {
+const saved = sessionStorage.getItem(SETUP_T1_CATS_KEY);
+if (saved) return JSON.parse(saved);
+} catch (e) {}
+return [];
+});
+
+useEffect(() => {
+try {
+sessionStorage.setItem(SETUP_T1_CATS_KEY, JSON.stringify(team1Categories));
+} catch (e) {}
+}, [team1Categories]);
+
+const [team2Categories, setTeam2Categories] = useState(() => {
+try {
+const saved = sessionStorage.getItem(SETUP_T2_CATS_KEY);
+if (saved) return JSON.parse(saved);
+} catch (e) {}
+return [];
+});
+
+useEffect(() => {
+try {
+sessionStorage.setItem(SETUP_T2_CATS_KEY, JSON.stringify(team2Categories));
+} catch (e) {}
+}, [team2Categories]);
+
 const [categorySelectingTeam, setCategorySelectingTeam] = useState(0); // 0 = Team 1, 1 = Team 2
 
 const selectedCategories = [...team1Categories, ...team2Categories];
@@ -195,14 +252,22 @@ const mappedCategories = databaseCategories.map((category, idx) => ({
 }));
 
 setAvailableCategories(mappedCategories);
-if (mappedCategories.length >= 6) {
-  setTeam1Categories(mappedCategories.slice(0, 3).map((c) => c.id));
-  setTeam2Categories(mappedCategories.slice(3, 6).map((c) => c.id));
-} else {
+setTeam1Categories(prev1 => {
+  if (prev1 && prev1.length > 0) return prev1;
+  if (mappedCategories.length >= 6) {
+    return mappedCategories.slice(0, 3).map((c) => c.id);
+  }
   const half = Math.ceil(mappedCategories.length / 2);
-  setTeam1Categories(mappedCategories.slice(0, half).map((c) => c.id));
-  setTeam2Categories(mappedCategories.slice(half).map((c) => c.id));
-}
+  return mappedCategories.slice(0, half).map((c) => c.id);
+});
+setTeam2Categories(prev2 => {
+  if (prev2 && prev2.length > 0) return prev2;
+  if (mappedCategories.length >= 6) {
+    return mappedCategories.slice(3, 6).map((c) => c.id);
+  }
+  const half = Math.ceil(mappedCategories.length / 2);
+  return mappedCategories.slice(half).map((c) => c.id);
+});
 } catch (error) {
 setCategoriesError(error.message || 'تعذر تحميل الفئات.');
 } finally {
@@ -416,6 +481,13 @@ loadout: t.loadout && t.loadout.length === 2 ? t.loadout : (idx === 0 ? ['double
 consumeGameSession();
 try {
 fetch(`${API_BASE}/promo/consume-game`, { method: 'POST' });
+} catch (e) {}
+
+try {
+sessionStorage.removeItem(SETUP_STEP_KEY);
+sessionStorage.removeItem(SETUP_TEAMS_KEY);
+sessionStorage.removeItem(SETUP_T1_CATS_KEY);
+sessionStorage.removeItem(SETUP_T2_CATS_KEY);
 } catch (e) {}
 
 await startBattlegroundGame(validatedTeams, selectedCategories);

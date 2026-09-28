@@ -35,101 +35,149 @@ localStorage.setItem(getSeenQuestionKey(userId), JSON.stringify([...seenIds]));
 }
 };
 
+const ACTIVE_GAME_KEY = 'jalsah_active_game';
+
+const loadSavedActiveGame = () => {
+  try {
+    const saved = localStorage.getItem(ACTIVE_GAME_KEY);
+    if (!saved) return null;
+    const parsed = JSON.parse(saved);
+    if (parsed && Array.isArray(parsed.board) && parsed.board.length > 0 && parsed.gameStage) {
+      return parsed;
+    }
+  } catch (error) {
+    console.warn('Failed to parse active game from cache:', error);
+  }
+  return null;
+};
+
+export const persistActiveGame = (state) => {
+  try {
+    if (state && (state.gameStage === 'playing' || state.gameStage === 'game_over')) {
+      const payload = {
+        gameStage: state.gameStage,
+        board: state.board,
+        teams: state.teams,
+        currentTurn: state.currentTurn,
+        activeTeamIndex: state.activeTeamIndex,
+        teamLevelPicks: state.teamLevelPicks || []
+      };
+      localStorage.setItem(ACTIVE_GAME_KEY, JSON.stringify(payload));
+    } else {
+      localStorage.removeItem(ACTIVE_GAME_KEY);
+    }
+  } catch (error) {
+    console.warn('Failed to persist active game state:', error);
+  }
+};
+
+export const clearSavedActiveGame = () => {
+  try {
+    localStorage.removeItem(ACTIVE_GAME_KEY);
+  } catch (e) {}
+};
+
 /**
-* useGameStore - مخزن الحالة المركزي للعبة "جلسة" باستخدام Zustand
-* يوفر إدارة كاملة لـ:
-* 1. قائمة الفرق ونقاطهم وتجهيز الأسلحة (Power-ups Loadout)
-* 2. مؤشر الفريق الحالي والتناوب التلقائي للأدوار (nextTurn)
-* 3. حالة مربعات الأسئلة (هل فتحت، والنقاط، والرابح)
-* 4. منطق احتساب النقاط (handleAnswer) مع مضاعفات x2 ونظام سرقة السؤال
-* 5. منطق عجلة الحظ مع 3 خيارات ديناميكية وتطبيق التأثير فوراً
-* 6. آلية سرقة السؤال (Steal Mechanic) من فئات الفريق الخصم
-*/
-export const useGameStore = create((set, get) => ({
-// ================= STATE =================
-gameStage: 'setup', // 'setup' | 'playing' | 'game_over'
-teams: [
-{
-id: 1,
-name: 'فريق الصقور',
-score: 0,
-color: 'purple',
-iconName: 'Shield',
-isFrozen: false,
-hasUsedWheel: false,
-loadout: ['double', 'steal'],
-powerups: { double: 1, steal: 1 }
-},
-{
-id: 2,
-name: 'فريق الأسود',
-score: 0,
-color: 'orange',
-iconName: 'Flame',
-isFrozen: false,
-hasUsedWheel: false,
-loadout: ['freeze', 'fifty'],
-powerups: { freeze: 1, fifty: 1 }
-}
-],
-currentTurn: 0, // Index of active team
-activeTeamIndex: 0, // Alias for backward compatibility
+ * useGameStore - مخزن الحالة المركزي للعبة "جلسة" باستخدام Zustand
+ * يوفر إدارة كاملة لـ:
+ * 1. قائمة الفرق ونقاطهم وتجهيز الأسلحة (Power-ups Loadout)
+ * 2. مؤشر الفريق الحالي والتناوب التلقائي للأدوار (nextTurn)
+ * 3. حالة مربعات الأسئلة (هل فتحت، والنقاط، والرابح)
+ * 4. منطق احتساب النقاط (handleAnswer) مع مضاعفات x2 ونظام سرقة السؤال
+ * 5. منطق عجلة الحظ مع 3 خيارات ديناميكية وتطبيق التأثير فوراً
+ * 6. آلية سرقة السؤال (Steal Mechanic) من فئات الفريق الخصم
+ */
+export const useGameStore = create((set, get) => {
+  const savedActiveGame = loadSavedActiveGame();
 
-// Tactical Steal Mode
-isStealMode: false,
+  return {
+    // ================= STATE =================
+    gameStage: savedActiveGame ? savedActiveGame.gameStage : 'setup', // 'setup' | 'playing' | 'game_over'
+    teams: savedActiveGame ? savedActiveGame.teams : [
+      {
+        id: 1,
+        name: 'فريق الصقور',
+        score: 0,
+        color: 'purple',
+        iconName: 'Shield',
+        isFrozen: false,
+        hasUsedWheel: false,
+        loadout: ['double', 'steal'],
+        powerups: { double: 1, steal: 1 }
+      },
+      {
+        id: 2,
+        name: 'فريق الأسود',
+        score: 0,
+        color: 'orange',
+        iconName: 'Flame',
+        isFrozen: false,
+        hasUsedWheel: false,
+        loadout: ['freeze', 'fifty'],
+        powerups: { freeze: 1, fifty: 1 }
+      }
+    ],
+    currentTurn: savedActiveGame ? savedActiveGame.currentTurn : 0, // Index of active team
+    activeTeamIndex: savedActiveGame ? savedActiveGame.activeTeamIndex : 0, // Alias for backward compatibility
 
-// Wheel Challenge Mode
-isWheelChallengeActive: false,
-wheelChallengeBeneficiary: 'current', // 'current' | 'opponent'
+    // Tactical Steal Mode
+    isStealMode: false,
 
-// Dynamic Level Tracking for Locking Rule: records of { teamId, categoryId, points }
-teamLevelPicks: [],
+    // Wheel Challenge Mode
+    isWheelChallengeActive: false,
+    wheelChallengeBeneficiary: 'current', // 'current' | 'opponent'
 
-// Jeopardy Grid Board: 6 columns x 3 tiles (200, 400, 600)
-board: [],
+    // Dynamic Level Tracking for Locking Rule: records of { teamId, categoryId, points }
+    teamLevelPicks: savedActiveGame ? (savedActiveGame.teamLevelPicks || []) : [],
 
-// Active Question Modal State
-activeTile: null,
-activeQuestion: null,
-questionModalOpen: false,
-selectedOption: null,
-isAnswerRevealed: false,
-isCorrect: null,
-eliminatedOptions: [],
+    // Jeopardy Grid Board: 6 columns x 3 tiles (200, 400, 600)
+    board: savedActiveGame ? savedActiveGame.board : [],
 
-// Fortune Wheel State
-wheelModalOpen: false,
-isWheelSpinning: false,
-selectedWheelOption: null,
-wheelRotation: 0,
-activeModifier: null, // null | 'double' | 'steal' | 'freeze' | 'fifty'
+    // Active Question Modal State
+    activeTile: null,
+    activeQuestion: null,
+    questionModalOpen: false,
+    selectedOption: null,
+    isAnswerRevealed: false,
+    isCorrect: null,
+    eliminatedOptions: [],
 
-// Route & Navigation State
-currentRoute: (() => {
-try {
-const saved = localStorage.getItem('jalsah_user');
-if (saved) {
-const u = JSON.parse(saved);
-if (u.role === 'admin') return 'admin';
-}
-if (typeof window !== 'undefined' && window.location.pathname === '/admin') {
-return 'admin';
-}
-if (typeof window !== 'undefined' && window.location.pathname === '/board') {
-return 'board';
-}
-} catch (e) {}
-return 'setup';
-})(),
+    // Fortune Wheel State
+    wheelModalOpen: false,
+    isWheelSpinning: false,
+    selectedWheelOption: null,
+    wheelRotation: 0,
+    activeModifier: null, // null | 'double' | 'steal' | 'freeze' | 'fifty'
 
-// Current User Session
-currentUser: (() => {
-try {
-const saved = localStorage.getItem('jalsah_user');
-if (saved) return JSON.parse(saved);
-} catch (e) {}
-return null;
-})(),
+    // Route & Navigation State
+    currentRoute: (() => {
+      try {
+        const saved = localStorage.getItem('jalsah_user');
+        if (saved) {
+          const u = JSON.parse(saved);
+          if (u.role === 'admin') return 'admin';
+        }
+        if (typeof window !== 'undefined' && window.location.pathname === '/admin') {
+          return 'admin';
+        }
+        if (savedActiveGame && (savedActiveGame.gameStage === 'playing' || savedActiveGame.gameStage === 'game_over')) {
+          return 'board';
+        }
+        if (typeof window !== 'undefined' && window.location.pathname === '/board') {
+          return 'board';
+        }
+      } catch (e) {}
+      return 'setup';
+    })(),
+
+    // Current User Session
+    currentUser: (() => {
+      try {
+        const saved = localStorage.getItem('jalsah_user');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+      return null;
+    })(),
 
 // Available Games Balance in Global Store
 availableGames: (() => {
@@ -200,6 +248,7 @@ logout: () => {
 try {
 localStorage.removeItem('jalsah_access_token');
 localStorage.removeItem('jalsah_user');
+clearSavedActiveGame();
 } catch (e) {}
 if (typeof window !== 'undefined') {
 window.history.pushState(null, '', '/');
@@ -207,6 +256,8 @@ window.history.pushState(null, '', '/');
 set({
 currentUser: null,
 currentRoute: 'setup',
+gameStage: 'setup',
+board: [],
 availableGames: 1
 });
 },
@@ -442,8 +493,13 @@ tiles: tiles
 });
 }
 
+if (typeof window !== 'undefined' && window.location.pathname !== '/board') {
+window.history.pushState(null, '', '/board');
+}
+
 set({
 gameStage: 'playing',
+currentRoute: 'board',
 teams: configuredTeams.map((t, i) => {
 const teamLoadout = t.loadout && t.loadout.length === 2
 ? t.loadout
@@ -478,6 +534,8 @@ selectedWheelOption: null,
 activeModifier: null,
 gameBanner: null
 });
+
+persistActiveGame(get());
 },
 
 // Alias for backward compatibility
@@ -958,6 +1016,8 @@ wheelChallengeBeneficiary: 'opponent',
 gameBanner: banner || state.gameBanner
 }));
 }
+
+persistActiveGame(get());
 },
 
 /**
@@ -996,6 +1056,7 @@ isStealMode: false,
 isWheelChallengeActive: false,
 activeModifier: null
 });
+persistActiveGame(get());
 return;
 }
 
@@ -1031,6 +1092,7 @@ isStealMode: false,
 isWheelChallengeActive: false,
 gameBanner: banner
 });
+persistActiveGame(get());
 },
 
 /**
@@ -1068,8 +1130,13 @@ set({ gameBanner: null });
 * إعادة ضبط وبدء جلسة جديدة
 */
 resetGame: () => {
+clearSavedActiveGame();
+if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+window.history.pushState(null, '', '/');
+}
 set({
 gameStage: 'setup',
+currentRoute: 'setup',
 board: [],
 activeTile: null,
 activeQuestion: null,
@@ -1083,5 +1150,6 @@ teamLevelPicks: [],
 teams: get().teams.map(t => ({ ...t, score: 0, isFrozen: false, hasUsedWheel: false }))
 });
 }
-}));
+};
+});
 
