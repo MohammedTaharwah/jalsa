@@ -447,11 +447,12 @@ if (!res.ok) {
 throw new Error(data.detail || 'الكود غير صالح أو تم استخدامه مسبقاً');
 }
 
-const updatedBalance = data.new_balance !== undefined ? data.new_balance : (availableGames + (data.games_reward || 2));
+const gamesAdded = data.games_reward || 2;
+const updatedBalance = data.new_balance !== undefined ? data.new_balance : (availableGames + gamesAdded);
 setAvailableGames(updatedBalance);
 setPromoFeedback({
 type: 'success',
-text: ` تم تفعيل الكود! لديك الآن ${updatedBalance} ألعاب مجانية.`
+text: ` تم تفعيل الكود بنجاح (+${gamesAdded} ألعاب مجانية)! إجمالي رصيدك الآن: ${updatedBalance} ألعاب.`
 });
 confetti({ particleCount: 90, spread: 60, origin: { y: 0.6 } });
 setPromoCodeInput('');
