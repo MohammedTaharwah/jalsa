@@ -137,7 +137,7 @@ const SETUP_T2_CATS_KEY = 'jalsah_setup_t2_cats';
 // Wizard Step State (1 to 4) - persisted across page refresh
 const [currentStep, setCurrentStep] = useState(() => {
 try {
-const saved = sessionStorage.getItem(SETUP_STEP_KEY);
+const saved = localStorage.getItem(SETUP_STEP_KEY) || sessionStorage.getItem(SETUP_STEP_KEY);
 const n = parseInt(saved, 10);
 return (n >= 1 && n <= 4) ? n : 1;
 } catch (e) {
@@ -147,6 +147,7 @@ return 1;
 
 useEffect(() => {
 try {
+localStorage.setItem(SETUP_STEP_KEY, String(currentStep));
 sessionStorage.setItem(SETUP_STEP_KEY, String(currentStep));
 } catch (e) {}
 }, [currentStep]);
@@ -176,7 +177,7 @@ const [exhaustionAlert, setExhaustionAlert] = useState(null);
 // Step 1: Teams State with Loadout (2 powerups per team) - persisted across refresh
 const [teams, setTeams] = useState(() => {
 try {
-const saved = sessionStorage.getItem(SETUP_TEAMS_KEY);
+const saved = localStorage.getItem(SETUP_TEAMS_KEY) || sessionStorage.getItem(SETUP_TEAMS_KEY);
 if (saved) return JSON.parse(saved);
 } catch (e) {}
 return [
@@ -187,6 +188,7 @@ return [
 
 useEffect(() => {
 try {
+localStorage.setItem(SETUP_TEAMS_KEY, JSON.stringify(teams));
 sessionStorage.setItem(SETUP_TEAMS_KEY, JSON.stringify(teams));
 } catch (e) {}
 }, [teams]);
@@ -194,7 +196,7 @@ sessionStorage.setItem(SETUP_TEAMS_KEY, JSON.stringify(teams));
 // Step 2: Turn-based Category Selection (3 categories for Team 1, 3 for Team 2) - persisted across refresh
 const [team1Categories, setTeam1Categories] = useState(() => {
 try {
-const saved = sessionStorage.getItem(SETUP_T1_CATS_KEY);
+const saved = localStorage.getItem(SETUP_T1_CATS_KEY) || sessionStorage.getItem(SETUP_T1_CATS_KEY);
 if (saved) return JSON.parse(saved);
 } catch (e) {}
 return [];
@@ -202,13 +204,14 @@ return [];
 
 useEffect(() => {
 try {
+localStorage.setItem(SETUP_T1_CATS_KEY, JSON.stringify(team1Categories));
 sessionStorage.setItem(SETUP_T1_CATS_KEY, JSON.stringify(team1Categories));
 } catch (e) {}
 }, [team1Categories]);
 
 const [team2Categories, setTeam2Categories] = useState(() => {
 try {
-const saved = sessionStorage.getItem(SETUP_T2_CATS_KEY);
+const saved = localStorage.getItem(SETUP_T2_CATS_KEY) || sessionStorage.getItem(SETUP_T2_CATS_KEY);
 if (saved) return JSON.parse(saved);
 } catch (e) {}
 return [];
@@ -216,6 +219,7 @@ return [];
 
 useEffect(() => {
 try {
+localStorage.setItem(SETUP_T2_CATS_KEY, JSON.stringify(team2Categories));
 sessionStorage.setItem(SETUP_T2_CATS_KEY, JSON.stringify(team2Categories));
 } catch (e) {}
 }, [team2Categories]);
@@ -512,6 +516,10 @@ loadout: t.loadout && t.loadout.length === 2 ? t.loadout : (idx === 0 ? ['double
 }));
 
 try {
+localStorage.removeItem(SETUP_STEP_KEY);
+localStorage.removeItem(SETUP_TEAMS_KEY);
+localStorage.removeItem(SETUP_T1_CATS_KEY);
+localStorage.removeItem(SETUP_T2_CATS_KEY);
 sessionStorage.removeItem(SETUP_STEP_KEY);
 sessionStorage.removeItem(SETUP_TEAMS_KEY);
 sessionStorage.removeItem(SETUP_T1_CATS_KEY);
