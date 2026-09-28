@@ -50,15 +50,20 @@ selectOption,
 handleAnswer,
 closeQuestionModal,
 resetGame,
-initGame
+initGame,
+availableGames
 } = useGameStore();
 
 // If board not yet created (e.g. refreshed page directly on board stage), initialize it
 useEffect(() => {
 if (!board || board.length === 0) {
+if (availableGames <= 0) {
+resetGame();
+return;
+}
 initGame(teams, ['sports', 'history', 'science', 'cinema', 'general', 'tech']);
 }
-}, [board?.length, initGame]);
+}, [board?.length, initGame, availableGames, resetGame, teams]);
 
 // Circular Timer State (30 seconds per question)
 const TIMER_SECONDS = 30;

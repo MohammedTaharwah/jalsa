@@ -168,6 +168,7 @@ const isAdmin = currentUser?.email === 'admin@jalsah.com' || currentUser?.userna
 const [promoCodeInput, setPromoCodeInput] = useState('');
 const [isApplyingPromo, setIsApplyingPromo] = useState(false);
 const [promoFeedback, setPromoFeedback] = useState(null);
+const [isLaunching, setIsLaunching] = useState(false);
 
 // Questions Exhaustion Alert State
 const [exhaustionAlert, setExhaustionAlert] = useState(null);
@@ -455,33 +456,60 @@ setIsApplyingPromo(false);
 
 // Final submit & Launch game
 const handleLaunchGame = async () => {
+if (isLaunching) return;
+
 // 1. Verify User status
 if (!isVerified) {
 setIsOTPOpen(true);
 return;
 }
 
-// 2. Check games balance
+// 2. Check games balance strictly
 if (availableGames <= 0) {
 setPromoFeedback({
 type: 'error',
-text: ' نفد رصيدك من الألعاب! يرجى شحن رصيدك عبر باقات الألعاب أو إدخال برومو كود للحصول على جولات جديدة.'
+text: 'نفد رصيدك من الألعاب! يرجى شحن رصيدك عبر باقات الألعاب أو إدخال برومو كود للحصول على جولات جديدة.'
 });
 return;
 }
 
+setIsLaunching(true);
+setPromoFeedback(null);
+
+try {
+// 3. Atomically consume 1 game session on backend first
+const token = localStorage.getItem('jalsah_access_token');
+const consumeRes = await fetch(`${API_BASE}/promo/consume-game`, {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json',
+...(token ? { Authorization: `Bearer ${token}` } : {})
+},
+body: JSON.stringify({ user_id: currentUser?.id })
+});
+
+if (!consumeRes.ok) {
+const errorData = await consumeRes.json().catch(() => ({}));
+setPromoFeedback({
+type: 'error',
+text: errorData.detail || 'نفد رصيدك من الألعاب! يرجى شحن رصيدك لتتمكن من خوض جولة جديدة.'
+});
+setAvailableGames(0);
+setIsLaunching(false);
+return;
+}
+
+const consumeData = await consumeRes.json();
+const updatedBalance = typeof consumeData.remaining_games === 'number'
+? consumeData.remaining_games
+: Math.max(0, availableGames - 1);
+setAvailableGames(updatedBalance);
 
 const validatedTeams = teams.map((t, idx) => ({
 ...t,
 name: t.name.trim() || `فريق ${idx + 1}`,
 loadout: t.loadout && t.loadout.length === 2 ? t.loadout : (idx === 0 ? ['double', 'steal'] : ['freeze', 'fifty'])
 }));
-
-// Deduct 1 game session
-consumeGameSession();
-try {
-fetch(`${API_BASE}/promo/consume-game`, { method: 'POST' });
-} catch (e) {}
 
 try {
 sessionStorage.removeItem(SETUP_STEP_KEY);
@@ -491,6 +519,15 @@ sessionStorage.removeItem(SETUP_T2_CATS_KEY);
 } catch (e) {}
 
 await startBattlegroundGame(validatedTeams, selectedCategories);
+} catch (err) {
+console.error('Launch game failed:', err);
+setPromoFeedback({
+type: 'error',
+text: 'حدث خطأ أثناء بدء الجلسة. يرجى التحقق من اتصالك بالإنترنت والمحاولة مجدداً.'
+});
+} finally {
+setIsLaunching(false);
+}
 };
 
 // Slide Animation Variants
@@ -1229,15 +1266,48 @@ promoFeedback.type === 'success'
 {/* Big Vibrant Call To Action */}
 <div className="pt-2">
 <motion.button
-whileHover={{ scale: 1.02 }}
-whileTap={{ scale: 0.98 }}
+whileHover={!isLaunching && availableGames > 0 ? { scale: 1.02 } : {}}
+whileTap={!isLaunching && availableGames > 0 ? { scale: 0.98 } : {}}
 type="button"
+disabled={isLaunching || availableGames <= 0}
 onClick={handleLaunchGame}
-className="w-full py-4 sm:py-5 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-purple-600 text-white font-black text-xl shadow-[0_15px_35px_rgba(249,115,22,0.3)] transition-all flex items-center justify-center gap-3 cursor-pointer"
+className={`w-full py-4 sm:py-5 rounded-2xl font-black text-xl transition-all flex items-center justify-center gap-3 ${
+availableGames <= 0
+? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300 shadow-none'
+: isLaunching
+? 'bg-purple-700 text-white cursor-wait opacity-90'
+: 'bg-gradient-to-r from-orange-500 via-amber-500 to-purple-600 text-white shadow-[0_15px_35px_rgba(249,115,22,0.3)] cursor-pointer'
+}`}
 >
+{isLaunching ? (
+<>
+<RotateCw className="w-6 h-6 animate-spin" />
+<span>جاري تجهيز الجلسة والأسئلة...</span>
+</>
+) : availableGames <= 0 ? (
+<>
+<AlertTriangle className="w-6 h-6 text-amber-500" />
+<span>نفد رصيدك من الألعاب (شحن الرصيد مطلوب)</span>
+</>
+) : (
+<>
 <span>ابدأ التحدي الآن</span>
 <Rocket className="w-6 h-6 stroke-[2.5]" />
+</>
+)}
 </motion.button>
+{availableGames <= 0 && (
+<div className="mt-3 flex justify-center">
+<button
+type="button"
+onClick={() => setIsCheckoutOpen(true)}
+className="text-xs font-bold text-purple-700 hover:text-purple-800 underline flex items-center gap-1.5 cursor-pointer py-1 px-3 rounded-lg hover:bg-purple-50 transition-colors"
+>
+<CreditCard className="w-4 h-4 text-purple-600" />
+<span>شحن رصيد الألعاب عبر باقات جلسة الآن</span>
+</button>
+</div>
+)}
 </div>
 </motion.div>
 )}

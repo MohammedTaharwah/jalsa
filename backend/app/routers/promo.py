@@ -1,6 +1,7 @@
 import logging
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -14,6 +15,9 @@ from app.schemas.promo import (
     PromoCodeOut
 )
 from app.core.deps import get_current_user
+
+class ConsumeGameRequest(BaseModel):
+    user_id: Optional[int] = None
 
 logger = logging.getLogger("qna_backend.promo")
 router = APIRouter(prefix="/promo", tags=["Promo Codes"])
@@ -112,20 +116,35 @@ def apply_promo_code(
 
 @router.post("/consume-game")
 def consume_game_session(
-    user_id: Optional[int] = None,
+    payload: Optional[ConsumeGameRequest] = None,
+    user_id: Optional[int] = Query(None),
     db: Session = Depends(get_db)
 ):
     """
-    استهلاك لعبة واحدة عند إنهاء أو بدء جولة، لتحديث العداد في قاعدة البيانات.
+    استهلاك لعبة واحدة عند بدء جولة، مع التحقق الصارم من توفر الرصيد.
     """
-    if user_id:
-        user = db.query(User).filter(User.id == user_id).first()
-        if user and user.games_balance > 0:
-            user.games_balance -= 1
-            db.commit()
-            return {"success": True, "remaining_games": user.games_balance}
+    target_user_id = (payload.user_id if payload else None) or user_id
+    if not target_user_id:
+        user = db.query(User).order_by(User.id.asc()).first()
+    else:
+        user = db.query(User).filter(User.id == target_user_id).first()
 
-    return {"success": True, "message": "تم تسجيل انتهاء الجولة"}
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="المستخدم غير موجود"
+        )
+
+    if user.games_balance <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="نفد رصيدك من الألعاب! يرجى شحن الرصيد لتتمكن من خوض جولة جديدة."
+        )
+
+    user.games_balance -= 1
+    db.commit()
+    db.refresh(user)
+    return {"success": True, "remaining_games": user.games_balance}
 
 
 # ================= ADMIN ROUTES =================

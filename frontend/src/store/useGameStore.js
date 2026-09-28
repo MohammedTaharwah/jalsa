@@ -323,6 +323,24 @@ get().setAvailableGames(Math.max(0, current - 1));
 * تهيئة اللعبة وبناء اللوحة وشبكة الأسئلة مباشرة من قاعدة البيانات
 */
 initGame: async (configuredTeams, selectedCategoryIds = ['sports', 'history', 'science', 'cinema', 'general', 'tech']) => {
+const currentBalance = get().availableGames;
+const currentStage = get().gameStage;
+if (currentBalance <= 0 && currentStage !== 'playing') {
+set({
+gameBanner: {
+type: 'warning',
+title: 'نفد الرصيد!',
+message: 'نفد رصيدك من الألعاب! يرجى شحن رصيدك لتتمكن من خوض جولة جديدة.'
+},
+gameStage: 'setup',
+currentRoute: 'setup'
+});
+if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+window.history.pushState(null, '', '/');
+}
+return false;
+}
+
 const currentUserId = get().currentUser?.id;
 const seenQuestionIds = loadSeenQuestionIds(currentUserId);
 let catKeys = selectedCategoryIds && selectedCategoryIds.length >= 4
@@ -424,6 +442,23 @@ chosenByTeam: ownerTeam,
 tiles: tiles
 };
 });
+}
+} else {
+const errJson = await res.json().catch(() => ({}));
+if (res.status === 403 || res.status === 400) {
+set({
+gameBanner: {
+type: 'warning',
+title: 'نفد الرصيد!',
+message: errJson.detail || 'نفد رصيدك من الألعاب! يرجى شحن الرصيد لتتمكن من اللعب.'
+},
+gameStage: 'setup',
+currentRoute: 'setup'
+});
+if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+window.history.pushState(null, '', '/');
+}
+return false;
 }
 }
 } catch (dbErr) {
