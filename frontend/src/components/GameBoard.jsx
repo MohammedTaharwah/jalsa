@@ -18,7 +18,8 @@ Check,
 AlertCircle,
 Eye,
 Snowflake,
-Lock
+Lock,
+X
 } from 'lucide-react';
 import { useGameStore } from '../store/useGameStore';
 import { FortuneWheelModal } from './FortuneWheelModal';
@@ -34,6 +35,7 @@ board,
 isStealMode,
 isWheelChallengeActive,
 activateWheelChallenge,
+cancelWheelChallenge,
 isLockedForCurrentTeam,
 activatePowerup,
 activeTile,
@@ -255,23 +257,34 @@ title="تم استهلاك ميزة عجلة الحظ لهذا الفريق في
 <span>العجلة مستهلكة</span>
 </button>
 ) : isWheelChallengeActive ? (
+<div className="flex items-center gap-1">
 <button
 type="button"
 className="px-2.5 py-1 rounded-xl bg-amber-500 text-white border border-amber-600 text-[11px] font-black flex items-center gap-1 shadow-xs ring-2 ring-amber-400/50"
-title="تحدي العجلة نشط! اختر سؤال 400 نقطة من فئات الخصم"
+title="تحدي العجلة نشط! اختر سؤال 400 نقطة المضاء بالذهبي من فئات الخصم"
 >
 <Dices className="w-3.5 h-3.5 animate-spin" />
-<span>التحدي نشط </span>
+<span>التحدي نشط 🎡</span>
 </button>
+<button
+type="button"
+onClick={cancelWheelChallenge}
+className="px-2 py-1 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-[11px] font-black flex items-center gap-1 shadow-xs transition-all cursor-pointer"
+title="إلغاء التحدي والعودة للاختيار الطبيعي"
+>
+<X className="w-3 h-3" />
+<span>إلغاء</span>
+</button>
+</div>
 ) : (
 <button
 type="button"
 onClick={activateWheelChallenge}
 className="px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white border border-amber-400 text-[11px] font-black transition-all flex items-center gap-1 shadow-xs active:scale-95 cursor-pointer"
-title="تفعيل تحدي العجلة: اختر سؤال 400 نقطة من الخصم للربح أو العقاب!"
+title="تفعيل تحدي العجلة: اختر سؤال 400 نقطة من الخصم للربح!"
 >
 <Dices className="w-3.5 h-3.5" />
-<span>تحدي العجلة </span>
+<span>تحدي العجلة 🎡</span>
 </button>
 )}
 
@@ -297,17 +310,26 @@ exit={{ opacity: 0, y: -10, scale: 0.98 }}
 className="w-full max-w-7xl mx-auto mb-1 p-2 rounded-2xl bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white shadow-md border border-amber-300 flex items-center justify-between gap-3 shrink-0"
 >
 <div className="flex items-center gap-2">
-<span className="text-lg"></span>
+<span className="text-lg">🎡</span>
 <div>
 <h4 className="text-xs font-black text-amber-100">تحدي العجلة مفعّل!</h4>
 <p className="text-[10px] text-amber-50 font-bold">
-فريق [{currentTeam.name}]، اختر سؤال الـ 400 نقطة حصراً من فئات الفريق الخصم للمخاطرة!
+فريق [{currentTeam.name}]، اختر سؤال الـ 400 نقطة (المضاء بالذهبي) من فئات الخصم!
 </p>
 </div>
 </div>
+<div className="flex items-center gap-2">
 <span className="px-2 py-0.5 rounded-lg bg-white/20 text-[10px] font-black">
-سؤال 400 نقطة للخصم 
+سؤال 400 نقطة للخصم 🎯
 </span>
+<button
+onClick={cancelWheelChallenge}
+className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-black flex items-center gap-1 shadow-sm transition-all cursor-pointer"
+>
+<X className="w-3 h-3" />
+<span>إلغاء التحدي</span>
+</button>
+</div>
 </motion.div>
 )}
 </AnimatePresence>
@@ -457,18 +479,7 @@ title={`أجاب فريقك مسبقاً على سؤال بمستوى ${tile.poi
 
 // 2. Wheel Challenge Mode restrictions
 const isWheelTarget = isWheelChallengeActive && isRivalCategory && tile.points === 400;
-const isWheelDisabled = isWheelChallengeActive && !isWheelTarget;
-
-if (isWheelDisabled) {
-return (
-<div
-key={tile.id}
-className="w-full h-full rounded-xl bg-slate-100/70 border border-slate-200/60 flex flex-col items-center justify-center text-center p-0.5 opacity-30 cursor-not-allowed select-none pointer-events-none"
->
-<span className="text-xs text-slate-400 font-bold leading-none">{tile.points}</span>
-</div>
-);
-}
+const isWheelMuted = isWheelChallengeActive && !isWheelTarget;
 
 const isTileStealTarget = isStealMode && isRivalCategory;
 
@@ -480,7 +491,9 @@ whileTap={{ scale: 0.96 }}
 onClick={() => selectTile(column, tile)}
 className={`w-full h-full rounded-xl font-black text-xs sm:text-sm lg:text-base transition-all flex flex-col items-center justify-center relative shadow-2xs hover:shadow-xs cursor-pointer border select-none ${
 isWheelTarget
-? 'bg-gradient-to-br from-amber-100 via-orange-100 to-amber-200 border-2 border-amber-500 text-amber-800 ring-2 ring-amber-400/60 shadow-md shadow-amber-500/20'
+? 'bg-gradient-to-br from-amber-400 via-orange-500 to-amber-500 border-2 border-amber-600 text-white ring-4 ring-amber-300 ring-offset-1 shadow-lg shadow-amber-500/40 animate-pulse scale-[1.03]'
+: isWheelMuted
+? 'bg-slate-100/70 border-slate-200/60 text-slate-400 opacity-40 hover:opacity-75'
 : isTileStealTarget
 ? 'bg-gradient-to-br from-rose-100 to-pink-100 border-rose-400 text-rose-700 ring-2 ring-rose-400/40 shadow-rose-500/20 animate-pulse'
 : tile.points === 200
@@ -491,12 +504,12 @@ isWheelTarget
 }`}
 >
 <span className="leading-none">{tile.points}</span>
-<span className="text-[8px] font-bold opacity-60 leading-none mt-0.5">
-{isWheelTarget ? 'تحدي ' : isTileStealTarget ? 'اسرقني ' : tile.isMystery ? 'حظ ' : 'نقطة'}
+<span className="text-[8px] font-bold opacity-75 leading-none mt-0.5">
+{isWheelTarget ? 'تحدي 🎡' : isTileStealTarget ? 'اسرقني ⚔️' : tile.isMystery ? 'حظ 🎲' : 'نقطة'}
 </span>
 {tile.isMystery && !isWheelTarget && (
 <span className="absolute top-0.5 left-1 text-[8px] text-amber-500 animate-pulse">
-
+✨
 </span>
 )}
 </motion.button>
@@ -744,7 +757,11 @@ className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:
 onClick={closeQuestionModal}
 className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-black text-sm shadow-md shadow-purple-500/20 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
 >
-<span>العودة للوحة والانتقال للدور التالي</span>
+<span>
+{isWheelChallengeActive && isCorrect
+? 'الانتقال لتدوير عجلة الحظ 🎡'
+: 'العودة للوحة والانتقال للدور التالي'}
+</span>
 <ArrowRight className="w-4 h-4 rotate-180" />
 </button>
 </motion.div>

@@ -706,25 +706,58 @@ p => p.teamId === currentTeam.id && p.categoryId === categoryId && p.points === 
 },
 
 /**
-* تفعيل ميزة "تحدي العجلة" (Wheel Challenge)
-* - متاح مرة واحدة فقط لكل فريق طوال الجلسة
-* - يجبر الفريق على اختيار سؤال 400 نقطة حصراً من فئات الخصم
-*/
+ * تفعيل ميزة "تحدي العجلة" (Wheel Challenge)
+ * - متاح مرة واحدة فقط لكل فريق طوال الجلسة
+ * - يجبر الفريق على اختيار سؤال 400 نقطة حصراً من فئات الخصم
+ * - يتحقق مسبقاً من وجود سؤال 400 متاح وغير مقفل لتجنب أي تعليق
+ */
 activateWheelChallenge: () => {
-const { teams, currentTurn, isWheelChallengeActive, questionModalOpen, wheelModalOpen } = get();
-if (questionModalOpen || wheelModalOpen) return;
-const currentTeam = teams[currentTurn];
-if (!currentTeam || currentTeam.hasUsedWheel || isWheelChallengeActive) return;
+  const { teams, currentTurn, isWheelChallengeActive, questionModalOpen, wheelModalOpen, board, isLockedForCurrentTeam } = get();
+  if (questionModalOpen || wheelModalOpen) return;
+  const currentTeam = teams[currentTurn];
+  if (!currentTeam || currentTeam.hasUsedWheel || isWheelChallengeActive) return;
 
-set(state => ({
-isWheelChallengeActive: true,
-teams: state.teams.map((t, idx) => idx === currentTurn ? { ...t, hasUsedWheel: true } : t),
-gameBanner: {
-type: 'wheel_challenge',
-title: 'تم تفعيل تحدي العجلة!',
-message: `فريق [${currentTeam.name}]، يجب اختيار سؤال بقيمة 400 نقطة حصراً من فئات الفريق الخصم!`
-}
-}));
+  // فحص هل يوجد سؤال 400 متاح وغير مقفل في فئات الفريق الخصم
+  const rivalCategories = (board || []).filter(c => c.chosenByTeam && c.chosenByTeam.id !== currentTeam.id);
+  const hasAvailable400 = rivalCategories.some(c =>
+    c.tiles && c.tiles.some(t => t.points === 400 && !t.isUsed && t.is_available !== false && !isLockedForCurrentTeam(c.categoryId, 400))
+  );
+
+  if (!hasAvailable400) {
+    set({
+      gameBanner: {
+        type: 'warning',
+        title: 'لا يمكن تفعيل التحدي!',
+        message: 'لا توجد أسئلة بقيمة 400 نقطة متاحة وغير مجابة في فئات الخصم حالياً!'
+      }
+    });
+    return;
+  }
+
+  set({
+    isWheelChallengeActive: true,
+    gameBanner: {
+      type: 'wheel_challenge',
+      title: 'تم تفعيل تحدي العجلة! 🎡',
+      message: `فريق [${currentTeam.name}]، اختر سؤال 400 نقطة (المضاء باللون الذهبي) من فئات الخصم للمخاطرة!`
+    }
+  });
+},
+
+/**
+ * إلغاء تحدي العجلة واستعادة الاختيار الحر الطبيعي
+ */
+cancelWheelChallenge: () => {
+  const { isWheelChallengeActive } = get();
+  if (!isWheelChallengeActive) return;
+  set({
+    isWheelChallengeActive: false,
+    gameBanner: {
+      type: 'info',
+      title: 'تم إلغاء التحدي',
+      message: 'تم إلغاء تحدي العجلة. يمكنك الآن اختيار أي سؤال متاح بشكل طبيعي.'
+    }
+  });
 },
 
 /**
@@ -766,7 +799,7 @@ set({
 gameBanner: {
 type: 'warning',
 title: 'شرط تحدي العجلة!',
-message: 'في تحدي العجلة، يجب اختيار سؤال بقيمة 400 نقطة حصراً!'
+message: 'في تحدي العجلة، يجب اختيار سؤال بقيمة 400 نقطة حصراً من فئات الخصم (أو اضغط زر إلغاء التحدي أعلى اللوحة)!'
 }
 });
 return;
@@ -776,11 +809,15 @@ set({
 gameBanner: {
 type: 'warning',
 title: 'فئة الخصم مطلوبة!',
-message: 'في تحدي العجلة، يجب أن يكون السؤال من فئات الفريق الخصم!'
+message: 'في تحدي العجلة، يجب أن يكون السؤال من فئات الفريق الخصم (أو اضغط زر إلغاء التحدي أعلى اللوحة)!'
 }
 });
 return;
 }
+// استهلاك ميزة العجلة لهذا الفريق فور اختيار السؤال وبدء التحدي
+set(state => ({
+teams: state.teams.map((t, idx) => idx === currentTurn ? { ...t, hasUsedWheel: true } : t)
+}));
 }
 
 // 3. Steal Mechanic: Must select from rival's categories
@@ -881,9 +918,11 @@ message: `عجلة الحظ جمدت فريق [${penalizedTeam.name}] وحرمت
 const rivalCols = board.filter(c => c.chosenByTeam && c.chosenByTeam.id === penalizedTeam.id);
 let stolen = null;
 for (const col of rivalCols) {
-const available = col.tiles.find(t => !t.isUsed && t.is_available !== false);
-if (available) {
-stolen = { tile: available, col };
+const available = [...col.tiles]
+.filter(t => !t.isUsed && t.is_available !== false)
+.sort((a, b) => b.points - a.points);
+if (available.length > 0) {
+stolen = { tile: available[0], col };
 break;
 }
 }
@@ -896,8 +935,18 @@ tiles: c.tiles.map(t => t.id === stolen.tile.id ? { ...t, isUsed: true, status: 
 teams: state.teams.map(t => t.id === targetTeam.id ? { ...t, score: t.score + stolen.tile.points } : t),
 gameBanner: {
 type: 'steal',
-title: 'سرقة سؤال من الخصم!',
-message: `عجلة الحظ سرقت سؤالاً بقيمة ${stolen.tile.points} نقطة لصالح [${targetTeam.name}]!`
+title: 'سرقة سؤال من الخصم! ⚔️',
+message: `عجلة الحظ سرقت سؤالاً بقيمة ${stolen.tile.points} نقطة من فئة [${stolen.col.categoryName || stolen.col.name}] لصالح [${targetTeam.name}]!`
+}
+}));
+} else {
+// مكافأة بديلة في حال كانت كل أسئلة الخصم مجابة
+set(state => ({
+teams: state.teams.map(t => t.id === targetTeam.id ? { ...t, score: t.score + 400 } : t),
+gameBanner: {
+type: 'double',
+title: 'مكافأة بديلة (+400 نقطة)!',
+message: `نظراً لعدم توفر أسئلة لسرقتها، منحت العجلة 400 نقطة إضافية لصالح [${targetTeam.name}]!`
 }
 }));
 }
@@ -1012,7 +1061,7 @@ if (isWheelChallengeActive) {
 banner = {
 type: 'wheel_loss',
 title: 'خسارة تحدي العجلة!',
-message: `إجابة خاطئة! كعقاب لفشلك في التحدي، ستطبق ميزة العجلة لصالح الفريق الخصم [${rivalTeam.name}]!`
+message: `إجابة خاطئة! خسر فريق [${currentTeam.name}] فرصة التحدي ونقاط السؤال.`
 };
 } else if (isStealMode || activeModifier === 'steal') {
 banner = {
@@ -1047,7 +1096,7 @@ teamLevelPicks: [...state.teamLevelPicks, newPick],
 isAnswerRevealed: true,
 isCorrect: false,
 isStealMode: false,
-wheelChallengeBeneficiary: 'opponent',
+wheelChallengeBeneficiary: 'none',
 gameBanner: banner || state.gameBanner
 }));
 }
@@ -1134,8 +1183,8 @@ persistActiveGame(get());
 * إغلاق نافذة السؤال واستدعاء nextTurn أو فتح عجلة الحظ إذا كان التحدي مفعّلاً
 */
 closeQuestionModal: () => {
-const { isWheelChallengeActive } = get();
-if (isWheelChallengeActive) {
+const { isWheelChallengeActive, wheelChallengeBeneficiary } = get();
+if (isWheelChallengeActive && wheelChallengeBeneficiary === 'current') {
 set({
 questionModalOpen: false,
 activeTile: null,
@@ -1150,6 +1199,9 @@ isWheelSpinning: false,
 wheelRotation: 0
 });
 } else {
+set({
+isWheelChallengeActive: false
+});
 get().nextTurn();
 }
 },

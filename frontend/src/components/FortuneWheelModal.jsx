@@ -126,27 +126,10 @@ className="absolute top-4 left-4 p-2 rounded-full text-slate-400 hover:text-whit
 </button>
 
 {/* Challenge Outcome Status Banner */}
-{isWheelChallengeActive && (
-<div
-className={`mb-3 p-2.5 rounded-2xl border text-xs font-black flex items-center justify-center gap-2 shadow-sm ${
-isWin
-? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300'
-: 'bg-rose-950/60 border-rose-500/50 text-rose-300'
-}`}
->
-{isWin ? (
-<>
+<div className="mb-3 p-2.5 rounded-2xl border text-xs font-black flex items-center justify-center gap-2 shadow-sm bg-emerald-950/60 border-emerald-500/50 text-emerald-300">
 <Trophy className="w-4 h-4 text-emerald-400 shrink-0" />
-<span> فوز بالتحدي! ستطبق ميزة العجلة لصالح فريق [{currentTeam.name}]</span>
-</>
-) : (
-<>
-<AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-<span> خسارة التحدي! كعقاب، ستطبق ميزة العجلة لصالح فريق [{rivalTeam.name}]</span>
-</>
-)}
+<span>فوز بالتحدي! تدور العجلة حصراً لصالح فريق [{currentTeam.name}] 🎉</span>
 </div>
-)}
 
 {/* Header Badge */}
 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-800/80 border border-slate-700 text-amber-400 text-xs font-black mb-2 shadow-sm">
@@ -266,16 +249,31 @@ className="px-2.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700/80 fle
 )}
 
 {/* ================= ACTION BUTTONS ================= */}
-<div className="flex flex-col sm:flex-row gap-2.5">
+<div className="flex flex-col gap-2.5">
 {!selectedWheelOption || isWheelSpinning ? (
+<>
 <button
 onClick={spinFortuneWheel}
 disabled={isWheelSpinning}
 className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white font-black text-sm sm:text-base shadow-lg shadow-amber-500/25 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
 >
 <RotateCw className={`w-5 h-5 ${isWheelSpinning ? 'animate-spin' : ''}`} />
-<span>{isWheelSpinning ? 'جاري تدوير العجلة...' : 'تدوير عجلة الحظ الآن! '}</span>
+<span>{isWheelSpinning ? 'جاري تدوير العجلة...' : 'تدوير عجلة الحظ الآن! 🎡'}</span>
 </button>
+
+{!isWheelSpinning && (
+<button
+onClick={() => {
+useGameStore.setState({ selectedWheelOption: FORTUNE_WHEEL_OPTIONS[0] });
+confirmFortuneResult();
+}}
+className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-amber-400/40 text-amber-300 font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+>
+<Zap className="w-4 h-4 text-amber-400" />
+<span>استفادة مباشرة فورية (+400 نقطة لفريقك بدون دوران) ⚡</span>
+</button>
+)}
+</>
 ) : (
 <button
 onClick={confirmFortuneResult}
