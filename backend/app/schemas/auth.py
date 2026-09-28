@@ -31,5 +31,5 @@ class OTPResendRequest(BaseModel):
 class RegisterResponse(BaseModel):
     message: str
     user: UserOut
-    access_token: str
+    access_token: Optional[str] = None
     requires_otp: bool = False

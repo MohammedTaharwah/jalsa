@@ -36,20 +36,22 @@ def send_otp_email(to_email: str, otp_code: str) -> bool:
     """
 
     # 1. التجربة عبر Brevo (Sendinblue) REST API (عبر المنفذ 443 - يعمل على Render دائماً)
-    if settings.BREVO_API_KEY:
+    # 1. التجربة عبر Brevo (Sendinblue) REST API (عبر المنفذ 443 - يعمل على Render دائماً)
+    if settings.BREVO_API_KEY and settings.BREVO_API_KEY.strip():
         try:
-            sender_email = settings.BREVO_SENDER_EMAIL or "noreply@jalsah.com"
-            sender_name = settings.BREVO_SENDER_NAME or "منصة جلسة"
+            api_key = settings.BREVO_API_KEY.strip()
+            sender_email = (settings.BREVO_SENDER_EMAIL or "noreply@jalsah.com").strip()
+            sender_name = (settings.BREVO_SENDER_NAME or "منصة جلسة").strip()
             res = httpx.post(
                 "https://api.brevo.com/v3/smtp/email",
                 headers={
-                    "api-key": settings.BREVO_API_KEY,
+                    "api-key": api_key,
                     "Content-Type": "application/json",
                     "accept": "application/json"
                 },
                 json={
                     "sender": {"name": sender_name, "email": sender_email},
-                    "to": [{"email": to_email}],
+                    "to": [{"email": to_email.strip()}],
                     "subject": subject,
                     "htmlContent": html_content
                 },
