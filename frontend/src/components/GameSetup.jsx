@@ -428,10 +428,17 @@ setIsApplyingPromo(true);
 setPromoFeedback(null);
 
 try {
+const token = localStorage.getItem('jalsah_access_token');
 const res = await fetch(`${API_BASE}/promo/apply`, {
 method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({ code: promoCodeInput.trim() })
+headers: {
+'Content-Type': 'application/json',
+...(token ? { Authorization: `Bearer ${token}` } : {})
+},
+body: JSON.stringify({
+code: promoCodeInput.trim(),
+user_id: currentUser?.id || null
+})
 });
 
 const data = await res.json();

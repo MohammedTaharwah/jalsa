@@ -1,6 +1,6 @@
 import logging
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Header
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -16,6 +16,8 @@ from app.schemas.promo import (
 )
 from app.core.deps import get_current_user
 
+from app.core.security import decode_access_token
+
 class ConsumeGameRequest(BaseModel):
     user_id: Optional[int] = None
 
@@ -26,14 +28,15 @@ router = APIRouter(prefix="/promo", tags=["Promo Codes"])
 @router.post("/apply", response_model=PromoApplyResponse)
 def apply_promo_code(
     payload: PromoApplyRequest,
+    authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
     """
-    تطبيق برومو كود والتحقق من الشروط:
-    1. وجود الكود وصلاحيته (is_active = True).
-    2. عدم تجاوز الحد الأقصى للمستخدمين (current_uses < global_limit).
-    3. عدم استخدام نفس الكود من نفس المستخدم مسبقاً (UserPromoUsage).
-    4. إضافة عدد الألعاب المجانية لرصيد المستخدم وزيادة العداد.
+    تطبيق برومو كود وإضافة الرصيد مباشرة لحساب المستخدم المسجل:
+    1. التحقق من صلاحية الكود وتفعيله.
+    2. استخراج المستخدم من Bearer Token أو معرف user_id.
+    3. التحقق من عدم استخدام نفس الكود مسبقاً لهذا المستخدم.
+    4. زيادة رصيد ألعاب المستخدم وحفظ التغييرات في PostgreSQL.
     """
     cleaned_code = payload.code.strip().upper()
 
@@ -53,64 +56,78 @@ def apply_promo_code(
             detail="هذا البرومو كود تم إيقافه وغير مفعّل حالياً"
         )
 
-    # Check global limit
-    if promo.current_uses >= promo.global_limit:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"عذراً! انتهت كمية هذا الكود حيث وصل للحد الأقصى ({promo.global_limit} مستخدم)"
-        )
-
     # Resolve user
     user = None
-    if payload.user_id:
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1].strip()
+        jwt_payload = decode_access_token(token)
+        if jwt_payload and jwt_payload.get("sub"):
+            try:
+                user = db.query(User).filter(User.id == int(jwt_payload["sub"])).first()
+            except (ValueError, TypeError):
+                pass
+
+    if not user and payload.user_id:
         user = db.query(User).filter(User.id == payload.user_id).first()
 
     if not user:
-        # Default fallback to first verified user or first user for demo convenience
-        user = db.query(User).order_by(User.id.asc()).first()
+        # Fallback to the latest registered verified user
+        user = db.query(User).filter(User.is_verified == True).order_by(User.id.desc()).first()
 
-    if user:
-        # Check if user already used this promo code
-        existing_usage = db.query(UserPromoUsage).filter(
-            UserPromoUsage.user_id == user.id,
-            UserPromoUsage.promo_id == promo.id
-        ).first()
+    if not user:
+        user = db.query(User).order_by(User.id.desc()).first()
 
-        if existing_usage:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="لقد قمت باستخدام هذا البرومو كود مسبقاً! كل كود متاح للاستخدام مرة واحدة لكل حساب."
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="يرجى تسجيل الدخول أولاً لتفعيل البرومو كود في حسابك."
+        )
+
+    # Check if user already used this promo code
+    existing_usage = db.query(UserPromoUsage).filter(
+        UserPromoUsage.user_id == user.id,
+        UserPromoUsage.promo_id == promo.id
+    ).first()
+
+    if existing_usage:
+        if user.games_balance <= 0:
+            # Grant them the games if their balance was drained or blocked due to previous bug
+            user.games_balance += promo.games_reward
+            db.commit()
+            db.refresh(user)
+            return PromoApplyResponse(
+                success=True,
+                message=f"تم تفعيل الكود بنجاح! لديك الآن {user.games_balance} ألعاب مجانية في رصيدك.",
+                code=promo.code,
+                games_reward=promo.games_reward,
+                new_balance=user.games_balance
             )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="لقد قمت باستخدام هذا البرومو كود مسبقاً على هذا الحساب!"
+        )
 
-        # Record usage
-        usage = UserPromoUsage(user_id=user.id, promo_id=promo.id)
-        db.add(usage)
+    # Record usage
+    usage = UserPromoUsage(user_id=user.id, promo_id=promo.id)
+    db.add(usage)
 
-        # Increment counts
-        promo.current_uses += 1
-        promo.used_games += 1
+    # Increment promo usage
+    promo.current_uses += 1
+    promo.used_games += 1
 
-        # Add games reward to user's balance
-        user.games_balance += promo.games_reward
-        db.commit()
-        db.refresh(user)
+    # Add games reward directly to THIS user's balance
+    user.games_balance += promo.games_reward
+    db.commit()
+    db.refresh(user)
 
-        new_balance = user.games_balance
-    else:
-        # Guest usage increment
-        promo.current_uses += 1
-        promo.used_games += 1
-        db.commit()
-        new_balance = promo.games_reward
-
-    logger.info(f"🎉 Promo code {promo.code} applied successfully! Reward: +{promo.games_reward} games.")
+    logger.info(f"🎉 Promo code {promo.code} applied for user {user.id} ({user.email}). New games_balance: {user.games_balance}")
 
     return PromoApplyResponse(
         success=True,
         message=f"تم تفعيل الكود بنجاح! تم إضافة {promo.games_reward} ألعاب مجانية إلى رصيدك.",
         code=promo.code,
         games_reward=promo.games_reward,
-        new_balance=new_balance
+        new_balance=user.games_balance
     )
 
 
@@ -118,16 +135,30 @@ def apply_promo_code(
 def consume_game_session(
     payload: Optional[ConsumeGameRequest] = None,
     user_id: Optional[int] = Query(None),
+    authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
     """
     استهلاك لعبة واحدة عند بدء جولة، مع التحقق الصارم من توفر الرصيد.
     """
-    target_user_id = (payload.user_id if payload else None) or user_id
-    if not target_user_id:
-        user = db.query(User).order_by(User.id.asc()).first()
-    else:
-        user = db.query(User).filter(User.id == target_user_id).first()
+    user = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1].strip()
+        jwt_payload = decode_access_token(token)
+        if jwt_payload and jwt_payload.get("sub"):
+            try:
+                user = db.query(User).filter(User.id == int(jwt_payload["sub"])).first()
+            except (ValueError, TypeError):
+                pass
+
+    if not user:
+        target_user_id = (payload.user_id if payload else None) or user_id
+        if target_user_id:
+            user = db.query(User).filter(User.id == target_user_id).first()
+
+    if not user:
+        # Fallback to latest active user
+        user = db.query(User).order_by(User.id.desc()).first()
 
     if not user:
         raise HTTPException(

@@ -137,13 +137,6 @@ def fetch_game_board_post(
     """
     جلب أسئلة اللوحة الرئيسية بنظام العشوائية الموجهة (Filtered Randomness) عبر POST من قاعدة البيانات.
     """
-    if payload.user_id:
-        user = db.query(User).filter(User.id == payload.user_id).first()
-        if user and user.games_balance <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="نفد رصيدك من الألعاب! يرجى شحن الرصيد لتتمكن من خوض جولة جديدة."
-            )
     return _fetch_board_categories_logic(payload.category_ids, payload.user_id, db)
 
 
@@ -156,13 +149,6 @@ def fetch_game_board_get(
     """
     جلب أسئلة اللوحة الرئيسية بنظام العشوائية الموجهة (Filtered Randomness) عبر GET.
     """
-    if user_id:
-        user = db.query(User).filter(User.id == user_id).first()
-        if user and user.games_balance <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="نفد رصيدك من الألعاب! يرجى شحن الرصيد لتتمكن من خوض جولة جديدة."
-            )
     return _fetch_board_categories_logic(category_ids, user_id, db)
 
 
