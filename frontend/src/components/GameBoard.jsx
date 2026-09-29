@@ -824,9 +824,10 @@ className={`px-5 py-2.5 rounded-2xl font-black text-xs sm:text-sm flex items-cen
 {(activeQuestion.options_json || []).map((option, idx) => {
 const letter = OPTION_LETTERS[idx] || '•';
 const isSelected = selectedOption === option;
-const isCorrectAnswer = option === activeQuestion.correct_answer;
-const isEliminated = (eliminatedOptions || []).some(
-eo => String(eo).trim() === String(option).trim()
+const isCorrectAnswer = String(option || '').trim() === String(activeQuestion.correct_answer || '').trim();
+// Strict safeguard: the correct answer can NEVER be eliminated under any circumstances
+const isEliminated = !isCorrectAnswer && (eliminatedOptions || []).some(
+eo => String(eo || '').trim() === String(option || '').trim()
 );
 const isWrongFromPrevious = reboundState?.wrongOptions?.includes(option);
 const isButtonDisabled = isAnswerRevealed || isWrongFromPrevious || isEliminated;

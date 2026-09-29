@@ -741,9 +741,12 @@ const { activeQuestion } = get();
 const options = activeQuestion?.options_json || activeQuestion?.options || [];
 if (activeQuestion && options.length >= 3 && !get().isAnswerRevealed) {
 const correctAns = String(activeQuestion.correct_answer || '').trim();
-const wrongOpts = options.filter(o => String(o).trim() !== correctAns);
+const wrongOpts = options.filter(o => {
+const optStr = String(o || '').trim();
+return optStr !== correctAns && optStr.toLowerCase() !== correctAns.toLowerCase();
+});
 const shuffled = [...wrongOpts].sort(() => Math.random() - 0.5);
-const toEliminate = shuffled.slice(0, 2);
+const toEliminate = shuffled.slice(0, 2).filter(o => String(o || '').trim() !== correctAns);
 set({
 eliminatedOptions: toEliminate,
 activeModifier: 'fifty',
@@ -957,9 +960,12 @@ let eliminated = [];
 if (activeMod === 'fifty' && tile.question) {
 const opts = tile.question.options_json || tile.question.options || [];
 const correctAns = String(tile.question.correct_answer || '').trim();
-const wrongOpts = opts.filter(o => String(o).trim() !== correctAns);
+const wrongOpts = opts.filter(o => {
+const optStr = String(o || '').trim();
+return optStr !== correctAns && optStr.toLowerCase() !== correctAns.toLowerCase();
+});
 const shuffled = [...wrongOpts].sort(() => Math.random() - 0.5);
-eliminated = shuffled.slice(0, 2);
+eliminated = shuffled.slice(0, 2).filter(o => String(o || '').trim() !== correctAns);
 banner = {
 type: 'fifty',
 title: '🎯 تم تفعيل 50:50 تلقائياً!',
