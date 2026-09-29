@@ -200,6 +200,7 @@ def login(login_req: LoginRequest, db: Session = Depends(get_db)):
     ).first()
 
     if not user or not verify_password(login_req.password, user.hashed_password):
+        logger.warning("Security Audit: Failed login attempt for identifier '%s'", login_req.username_or_email)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="اسم المستخدم أو كلمة المرور غير صحيحة",

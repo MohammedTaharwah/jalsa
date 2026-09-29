@@ -39,13 +39,16 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down application...")
 
 
+is_production = settings.PAYPAL_ENVIRONMENT.lower() == "production"
+
 app = FastAPI(
     title="Jalsah - Multiplayer Q&A Platform API",
     description="Backend API with PostgreSQL, SQLAlchemy, JWT Authentication, and WebSockets.",
     version="1.0.0",
     lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc"
+    docs_url=None if is_production else "/docs",
+    redoc_url=None if is_production else "/redoc",
+    openapi_url=None if is_production else "/openapi.json"
 )
 
 # Configure CORS
@@ -62,6 +65,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    """Enforce standard HTTP security headers across all responses."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    return response
 
 
 @app.exception_handler(Exception)

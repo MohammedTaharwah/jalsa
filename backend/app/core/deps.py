@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 from fastapi import Depends, HTTPException, status, Header
 from fastapi.security import OAuth2PasswordBearer
@@ -7,6 +8,7 @@ from app.database import get_db
 from app.models.user import User
 from app.core.security import decode_access_token
 
+logger = logging.getLogger("qna_backend.security")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
@@ -49,6 +51,11 @@ def require_admin(
 ) -> User:
     """Dependency ensuring that the authenticated user possesses admin privileges."""
     if current_user.role != "admin":
+        logger.warning(
+            "Security Audit: Unauthorized admin access attempt by user_id=%s, username='%s'",
+            current_user.id,
+            current_user.username
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="غير مصرح: هذا الإجراء يتطلب صلاحيات المدير (Admin privilege required)"
