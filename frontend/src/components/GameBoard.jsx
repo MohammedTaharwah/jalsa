@@ -19,7 +19,8 @@ AlertCircle,
 Eye,
 Snowflake,
 Lock,
-X
+X,
+RefreshCw
 } from 'lucide-react';
 import { useGameStore } from '../store/useGameStore';
 import { FortuneWheelModal } from './FortuneWheelModal';
@@ -34,6 +35,7 @@ teams,
 currentTurn,
 board,
 isStealMode,
+cancelStealMode,
 isWheelChallengeActive,
 activateWheelChallenge,
 cancelWheelChallenge,
@@ -41,6 +43,7 @@ isLockedForCurrentTeam,
 activatePowerup,
 activeTile,
 activeQuestion,
+swapActiveQuestion,
 questionModalOpen,
 selectedOption,
 isAnswerRevealed,
@@ -345,6 +348,19 @@ title="تفعيل تحدي العجلة: اختر سؤال 400 نقطة من ا�
 </button>
 )}
 
+{/* Cancel / Change Steal Mode Action Button */}
+{isStealMode && (
+  <button
+    type="button"
+    onClick={cancelStealMode}
+    className="px-2.5 py-1 rounded-xl bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white border border-rose-400 text-[11px] font-black transition-all flex items-center gap-1 shadow-xs active:scale-95 cursor-pointer animate-pulse"
+    title="إلغاء وضع السرقة واسترجاع السلاح وتغيير الاختيار"
+  >
+    <Swords className="w-3.5 h-3.5" />
+    <span>تغيير / إلغاء السرقة 🔄</span>
+  </button>
+)}
+
 {/* Toggle Timer Action (30s / open time) */}
 <button
 type="button"
@@ -416,17 +432,28 @@ exit={{ opacity: 0, y: -10, scale: 0.98 }}
 className="w-full max-w-7xl mx-auto mb-1 p-2 rounded-2xl bg-gradient-to-r from-rose-600 via-pink-600 to-rose-700 text-white shadow-md border border-rose-300 flex items-center justify-between gap-3 animate-pulse shrink-0"
 >
 <div className="flex items-center gap-2">
-<span className="text-lg"></span>
+<span className="text-lg">⚔️</span>
 <div>
-<h4 className="text-xs font-black text-amber-200">وضع سرقة السؤال مفعّل!</h4>
+<h4 className="text-xs font-black text-amber-200">وضع سرقة السؤال مفعّل! ⚔️</h4>
 <p className="text-[10px] text-rose-100 font-bold">
-فريق [{currentTeam.name}] اختر أي سؤال متاح من فئات الفريق الخصم لسرقته!
+فريق [{currentTeam.name}]، يمكنك اختيار أي سؤال من فئات الخصم — حتى الأسئلة المغلقة أصبحت مفتوحة لك!
 </p>
 </div>
 </div>
+<div className="flex items-center gap-2">
 <span className="px-2 py-0.5 rounded-lg bg-white/20 text-[10px] font-black">
-اختر سؤال الخصم 
+يفتح الأسئلة المغلقة 🔓
 </span>
+<button
+type="button"
+onClick={cancelStealMode}
+className="px-2.5 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white text-[10px] font-black flex items-center gap-1 shadow-sm transition-all cursor-pointer"
+title="إلغاء وضع السرقة وتغيير الاختيار"
+>
+<RotateCcw className="w-3 h-3" />
+<span>تغيير / إلغاء السرقة</span>
+</button>
+</div>
 </motion.div>
 )}
 </AnimatePresence>
@@ -530,8 +557,11 @@ title={tile.message || `نفدت الأسئلة لمستوى ${tile.points} نق
 }
 
 // 1. Dynamic Locking Rule: team already answered this point level in this category
+// EXCEPT when in Steal Mode on a rival category: Steal powerup unlocks locked questions!
 const isLocked = isLockedForCurrentTeam(column.categoryId, tile.points);
-if (isLocked) {
+const isUnlockedBySteal = isLocked && isStealMode && isRivalCategory;
+
+if (isLocked && !isUnlockedBySteal) {
 return (
 <div
 key={tile.id}
@@ -567,7 +597,9 @@ isWheelTarget
 : isWheelMuted
 ? 'bg-slate-100/70 border-slate-200/60 text-slate-400 opacity-40 hover:opacity-75'
 : isTileStealTarget
-? 'bg-gradient-to-br from-rose-100 to-pink-100 border-rose-400 text-rose-700 ring-2 ring-rose-400/40 shadow-rose-500/20 animate-pulse'
+? (isUnlockedBySteal
+    ? 'bg-gradient-to-br from-rose-600 via-pink-600 to-rose-700 border-2 border-rose-300 text-white ring-2 ring-rose-400/60 shadow-lg shadow-rose-600/30 animate-pulse'
+    : 'bg-gradient-to-br from-rose-100 to-pink-100 border-rose-400 text-rose-700 ring-2 ring-rose-400/40 shadow-rose-500/20 animate-pulse')
 : tile.points === 200
 ? 'bg-purple-50/80 hover:bg-purple-100/90 border-purple-200 text-purple-700'
 : tile.points === 400
@@ -576,10 +608,15 @@ isWheelTarget
 }`}
 >
 <span className="leading-none">{tile.points}</span>
-<span className="text-[8px] font-bold opacity-75 leading-none mt-0.5">
-{isWheelTarget ? 'تحدي 🎡' : isTileStealTarget ? 'اسرقني ⚔️' : tile.isMystery ? 'حظ 🎲' : 'نقطة'}
+<span className="text-[8px] font-bold opacity-90 leading-none mt-0.5">
+{isWheelTarget ? 'تحدي 🎡' : isTileStealTarget ? (isUnlockedBySteal ? 'فك القفل 🔓' : 'اسرقني ⚔️') : tile.isMystery ? 'حظ 🎲' : 'نقطة'}
 </span>
-{tile.isMystery && !isWheelTarget && (
+{isUnlockedBySteal && (
+<span className="absolute top-0.5 right-1 text-[9px] text-amber-200 animate-bounce" title="تم فتح هذا السؤال المغلق بفضل سلاح السرقة!">
+🔓
+</span>
+)}
+{tile.isMystery && !isWheelTarget && !isUnlockedBySteal && (
 <span className="absolute top-0.5 left-1 text-[8px] text-amber-500 animate-pulse">
 ✨
 </span>
@@ -782,14 +819,15 @@ className="px-6 py-3 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-b
 ) : (
 /* Standard 4-Option Grid (أ، ب، ج، د) */
 <div className="space-y-4">
-{/* 50:50 Tactical Weapon Button Inside Question Modal */}
-{!isAnswerRevealed && !reboundState.isActive && currentTeam.loadout?.includes('fifty') && (
-<div className="flex items-center justify-center pt-1 pb-1">
+{/* Tactical Action Buttons: 50:50 and Swap Question (تغيير السؤال) */}
+{!isAnswerRevealed && !reboundState.isActive && (
+<div className="flex flex-wrap items-center justify-center gap-2.5 pt-1 pb-1">
+{currentTeam.loadout?.includes('fifty') && (
 <button
 type="button"
 disabled={(eliminatedOptions || []).length > 0 || currentTeam.isFrozen || (!((currentTeam.powerups?.fifty || 0) > 0) && currentTeam.score < 100)}
 onClick={() => activatePowerup(currentTeam.id, 'fifty')}
-className={`px-5 py-2.5 rounded-2xl font-black text-xs sm:text-sm flex items-center gap-2 border transition-all shadow-md active:scale-95 cursor-pointer ${
+className={`px-4 py-2 rounded-2xl font-black text-xs sm:text-sm flex items-center gap-2 border transition-all shadow-md active:scale-95 cursor-pointer ${
 (eliminatedOptions || []).length > 0
 ? 'bg-amber-50 border-amber-200 text-amber-800 opacity-90 cursor-default'
 : currentTeam.isFrozen
@@ -816,6 +854,18 @@ className={`px-5 py-2.5 rounded-2xl font-black text-xs sm:text-sm flex items-cen
 </span>
 )
 )}
+</button>
+)}
+
+{/* Change Question Button (تغيير السؤال 🔄) */}
+<button
+type="button"
+onClick={swapActiveQuestion}
+className="px-4 py-2 rounded-2xl font-black text-xs sm:text-sm flex items-center gap-2 border border-purple-300 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md shadow-purple-500/20 active:scale-95 cursor-pointer transition-all"
+title="استبدال السؤال الحالي بسؤال بديل من نفس المستوى"
+>
+<RefreshCw className="w-4 h-4 text-purple-200" />
+<span>تغيير السؤال 🔄</span>
 </button>
 </div>
 )}

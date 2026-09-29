@@ -129,6 +129,8 @@ export const useGameStore = create((set, get) => {
 
     // Tactical Steal Mode
     isStealMode: false,
+    stealDeductionType: null,
+    stealCost: 150,
 
     // Wheel Challenge Mode
     isWheelChallengeActive: false,
@@ -727,12 +729,14 @@ confetti({ particleCount: 55, spread: 60 });
 } else if (powerupId === 'steal') {
 set({
 isStealMode: true,
+stealDeductionType: hasCharge ? 'charge' : 'points',
+stealCost: cost,
 gameBanner: {
 type: 'steal',
-title: 'وضع سرقة السؤال مفعّل!',
+title: 'وضع سرقة السؤال مفعّل! ⚔️',
 message: hasCharge
-? 'تم استخدام شحنة سرقة السؤال! اختر الآن أي سؤال متاح من فئات الفريق الخصم لسرقته!'
-: `تم خصم ${cost} نقطة. اختر الآن أي سؤال متاح من فئات الفريق الخصم لسرقته وحرمانه منه نهائياً!`
+? 'تم تفعيل سرقة السؤال! يمكنك الآن فتح أي سؤال (حتى لو كان مغلقاً) من فئات الخصم لسرقته!'
+: `تم خصم ${cost} نقطة. يمكنك الآن فتح أي سؤال (حتى لو كان مغلقاً) من فئات الخصم لسرقته!`
 }
 });
 confetti({ particleCount: 70, spread: 70 });
@@ -844,6 +848,122 @@ cancelWheelChallenge: () => {
 },
 
 /**
+ * إلغاء وضع السرقة وتغيير الاختيار مع استرجاع السلاح أو النقاط
+ */
+cancelStealMode: () => {
+  const { isStealMode, teams, currentTurn, stealDeductionType, stealCost } = get();
+  if (!isStealMode) return;
+
+  const currentTeam = teams[currentTurn];
+  set(state => ({
+    isStealMode: false,
+    activeModifier: state.activeModifier === 'steal' ? null : state.activeModifier,
+    teams: state.teams.map((t, idx) => {
+      if (idx !== currentTurn) return t;
+      if (stealDeductionType === 'points') {
+        return { ...t, score: t.score + (stealCost || 150) };
+      } else {
+        return {
+          ...t,
+          powerups: {
+            ...t.powerups,
+            steal: (t.powerups?.steal || 0) + 1
+          }
+        };
+      }
+    }),
+    gameBanner: {
+      type: 'info',
+      title: 'تم إلغاء وضع السرقة',
+      message: `تم إلغاء وضع السرقة واسترجاع ${stealDeductionType === 'points' ? `${stealCost || 150} نقطة` : 'سلاح السرقة'} لفريق [${currentTeam?.name || ''}]. يمكنك الآن اختيار أي سؤال متاح.`
+    }
+  }));
+},
+
+/**
+ * تغيير السؤال الحالي واستبداله بسؤال بديل من نفس المستوى (واذا بدك تغيير)
+ */
+swapActiveQuestion: () => {
+  const { activeTile, activeQuestion, board, currentUser } = get();
+  if (!activeTile || !activeQuestion || get().isAnswerRevealed) return;
+
+  const catId = activeTile.categoryId;
+  const pts = activeTile.points;
+  const currentQId = activeQuestion.id;
+  const currentUserId = currentUser?.id;
+  const seenIds = loadSeenQuestionIds(currentUserId);
+
+  const pool = [
+    ...(BATTLEGROUND_QUESTIONS[catId] || []),
+    ...(BATTLEGROUND_QUESTIONS.general || [])
+  ];
+
+  let candidates = pool.filter(q => q.points === pts && q.id !== currentQId && !seenIds.has(q.id));
+  if (candidates.length === 0) {
+    candidates = pool.filter(q => q.points === pts && q.id !== currentQId);
+  }
+  if (candidates.length === 0) {
+    candidates = pool.filter(q => q.id !== currentQId);
+  }
+
+  if (candidates.length === 0) {
+    set({
+      gameBanner: {
+        type: 'warning',
+        title: 'تعذر التغيير',
+        message: 'لا تتوفر أسئلة بديلة إضافية لهذا المستوى حالياً.'
+      }
+    });
+    return;
+  }
+
+  const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+  const rawOptions = chosen.options_json || chosen.options || [];
+  const randomizedOptions = shuffleArray(rawOptions);
+
+  const newQuestion = {
+    id: chosen.id,
+    question_text: chosen.question_text || chosen.question,
+    options_json: randomizedOptions,
+    correct_answer: chosen.correct_answer || chosen.answer,
+    points: pts,
+    category_name: activeTile.categoryName
+  };
+
+  if (currentUserId && newQuestion.id) {
+    saveSeenQuestionId(currentUserId, newQuestion.id);
+  }
+
+  const updatedBoard = (board || []).map(col => {
+    if (col.categoryId !== catId) return col;
+    return {
+      ...col,
+      tiles: (col.tiles || []).map(t => {
+        if (t.id !== activeTile.id) return t;
+        return {
+          ...t,
+          question: newQuestion
+        };
+      })
+    };
+  });
+
+  set({
+    board: updatedBoard,
+    activeQuestion: newQuestion,
+    eliminatedOptions: [],
+    selectedOption: null,
+    gameBanner: {
+      type: 'info',
+      title: '🔄 تم تغيير السؤال بنجاح!',
+      message: 'تم استبدال السؤال بسؤال جديد مختلف من نفس المستوى. بالتوفيق!'
+    }
+  });
+
+  confetti({ particleCount: 45, spread: 65 });
+},
+
+/**
 * دالة الضغط على مربع السؤال مع التحقق من قاعدة القفل وتحدي العجلة
 */
 selectTile: (category, tile) => {
@@ -864,15 +984,20 @@ const currentTeam = teams[currentTurn];
 const isRivalCategory = category.chosenByTeam && category.chosenByTeam.id !== currentTeam.id;
 
 // 1. Dynamic Locking Rule: Block if current team already answered this point level in this category
+// EXCEPT when in Steal Mode on a rival category: Steal weapon unlocks locked questions!
 if (isLockedForCurrentTeam(category.categoryId, tile.points)) {
-set({
-gameBanner: {
-type: 'warning',
-title: 'مربع مقفل لفريقك!',
-message: `فريق [${currentTeam.name}] أجاب مسبقاً على سؤال بقيمة ${tile.points} نقطة في فئة [${category.name || category.categoryName}]. اختر مستوى آخر!`
-}
-});
-return;
+  if (isStealMode && isRivalCategory) {
+    // Allowed! Steal weapon unlocks and opens the locked rival question!
+  } else {
+    set({
+      gameBanner: {
+        type: 'warning',
+        title: 'مربع مقفل لفريقك!',
+        message: `فريق [${currentTeam.name}] أجاب مسبقاً على سؤال بقيمة ${tile.points} نقطة في فئة [${category.name || category.categoryName}]. اختر مستوى آخر!`
+      }
+    });
+    return;
+  }
 }
 
 // 2. Wheel Challenge restrictions: 400 points ONLY and Rival category ONLY!
