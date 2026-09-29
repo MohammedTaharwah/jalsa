@@ -57,8 +57,28 @@ def init_db():
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_code VARCHAR(6);"))
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_expires_at TIMESTAMP WITH TIME ZONE;"))
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS games_balance INTEGER DEFAULT 1;"))
+            
+            # Enable Row Level Security (RLS) on all tables to satisfy Supabase security checks
+            rls_tables = [
+                "categories",
+                "powerups",
+                "promocodes",
+                "user_promo_usage",
+                "questions",
+                "user_seen_questions",
+                "social_links",
+                "spy_categories",
+                "spy_words",
+                "users"
+            ]
+            for tbl in rls_tables:
+                try:
+                    conn.execute(text(f"ALTER TABLE IF EXISTS public.{tbl} ENABLE ROW LEVEL SECURITY;"))
+                except Exception as rls_err:
+                    logger.warning(f"Could not enable RLS on table {tbl}: {rls_err}")
+
             conn.commit()
 
-        logger.info("Database tables and columns initialized successfully.")
+        logger.info("Database tables, columns, and Row Level Security (RLS) initialized successfully.")
     except Exception as e:
         logger.error(f"Error initializing database tables: {e}")
