@@ -25,7 +25,12 @@ import {
   Laptop,
   Landmark,
   Gift,
-  CreditCard
+  CreditCard,
+  Lock,
+  Unlock,
+  Award,
+  Vote,
+  Target
 } from 'lucide-react';
 import logo from '../../assets/logo.png';
 import { SocialFooter } from '../SocialFooter';
@@ -125,6 +130,7 @@ const DEFAULT_FALLBACK_CATEGORIES = [
 ];
 
 const SPY_GAME_SESSION_KEY = 'jalsah_spy_game_session';
+const SPY_PLAYER_SCORES_KEY = 'jalsah_spy_player_scores';
 
 const loadSavedSpySession = () => {
   try {
@@ -136,9 +142,130 @@ const loadSavedSpySession = () => {
   }
 };
 
+const loadSavedPlayerScores = () => {
+  try {
+    const raw = localStorage.getItem(SPY_PLAYER_SCORES_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw);
+  } catch (e) {
+    return {};
+  }
+};
+
 const SUGGESTED_NAMES = [
   'محمد', 'أحمد', 'عمر', 'خالد', 'سارة', 'فاطمة', 'يوسف', 'علي', 'نور', 'حمزة', 'مريم', 'زين', 'ليان', 'كريم'
 ];
+
+/**
+ * دالة احتساب نقاط الجولة وفق منطق دقيق وممتع:
+ * للمواطنين:
+ * - صوت صحيح على الدسوس: +100
+ * - كشف الدسوس بالأغلبية (مكافأة الفريق): +50
+ * للدسوس:
+ * - النجاة وخداع الأغلبية: +150
+ * - تضليل الأصوات: +25 عن كل صوت مواطن ذهب لمواطن بريء
+ * - تخمين الكلمة السرية: +100
+ * - هروب ذكي (إذا كُشف بالتصويت لكنه عرف الكلمة): +50
+ */
+const calculateScores = ({ assignedRoles, votes, secretWord, spyGuess, spyGuessedCorrectly }) => {
+  const actualSpies = assignedRoles.filter((r) => r.isSpy).map((r) => r.name);
+  const citizens = assignedRoles.filter((r) => !r.isSpy).map((r) => r.name);
+
+  // 1. فرز الأصوات
+  const voteTally = {};
+  assignedRoles.forEach((r) => {
+    voteTally[r.name] = 0;
+  });
+
+  Object.values(votes || {}).forEach((candidate) => {
+    if (candidate && voteTally[candidate] !== undefined) {
+      voteTally[candidate] += 1;
+    }
+  });
+
+  // 2. تحديد المشتبه به الحائز على أعلى أصوات
+  let maxVotes = 0;
+  Object.values(voteTally).forEach((cnt) => {
+    if (cnt > maxVotes) maxVotes = cnt;
+  });
+
+  const mostVotedPlayers = Object.keys(voteTally).filter(
+    (name) => voteTally[name] === maxVotes && maxVotes > 0
+  );
+
+  // هل كُشف الدسوس؟ (أي أن أحد الجواسيس حصل على أعلى الأصوات)
+  const spyCaught = actualSpies.some((spy) => mostVotedPlayers.includes(spy));
+
+  const roundPoints = {};
+  const pointBreakdowns = {};
+
+  assignedRoles.forEach((r) => {
+    roundPoints[r.name] = 0;
+    pointBreakdowns[r.name] = [];
+  });
+
+  // 3. نقاط المواطنين
+  citizens.forEach((cit) => {
+    const theirVote = votes?.[cit];
+    // صوت صحيح على الدسوس
+    if (actualSpies.includes(theirVote)) {
+      roundPoints[cit] += 100;
+      pointBreakdowns[cit].push({ label: 'صوت صحيح لكشف الدسوس 🎯', points: 100 });
+    }
+    // مكافأة فوز الفريق الجماعي
+    if (spyCaught) {
+      roundPoints[cit] += 50;
+      pointBreakdowns[cit].push({ label: 'مكافأة انتصار المواطنين 🛡️', points: 50 });
+    }
+  });
+
+  // 4. نقاط الدسوس (الجاسوس)
+  actualSpies.forEach((spy) => {
+    // نجاة الدسوس وعدم كشفه بالأغلبية
+    if (!spyCaught) {
+      roundPoints[spy] += 150;
+      pointBreakdowns[spy].push({ label: 'النجاة وخداع الأغلبية 🕵️‍♂️', points: 150 });
+    }
+
+    // نقاط التمويه والتضليل: كل صوت من مواطن ذهب لمواطن بريء يعطي الدسوس 25 نقطة
+    let misdirectedVotes = 0;
+    citizens.forEach((cit) => {
+      const v = votes?.[cit];
+      if (v && citizens.includes(v)) {
+        misdirectedVotes += 1;
+      }
+    });
+
+    if (misdirectedVotes > 0) {
+      const misleadPts = misdirectedVotes * 25;
+      roundPoints[spy] += misleadPts;
+      pointBreakdowns[spy].push({
+        label: `تضليل أصوات المواطنين (${misdirectedVotes} أصوات بريئة) 🌀`,
+        points: misleadPts
+      });
+    }
+
+    // نقاط تخمين الكلمة السرية
+    if (spyGuessedCorrectly) {
+      roundPoints[spy] += 100;
+      pointBreakdowns[spy].push({ label: 'تخمين الكلمة السرية بنجاح 🧠', points: 100 });
+
+      // مكافأة الهروب الذكي إذا كان قد كشف بالتصويت لكنه عرف الكلمة
+      if (spyCaught) {
+        roundPoints[spy] += 50;
+        pointBreakdowns[spy].push({ label: 'مكافأة الهروب الذكي بالكلمة 🚀', points: 50 });
+      }
+    }
+  });
+
+  return {
+    voteTally,
+    mostVotedPlayers,
+    spyCaught,
+    roundPoints,
+    pointBreakdowns
+  };
+};
 
 export const SpyGame = ({ onExit }) => {
   const savedSession = loadSavedSpySession();
@@ -154,7 +281,7 @@ export const SpyGame = ({ onExit }) => {
   const [balanceAlert, setBalanceAlert] = useState(null);
   const [isConsuming, setIsConsuming] = useState(false);
 
-  // Phases: 'setup' -> 'categories' -> 'reveal' -> 'discussion' -> 'vote' -> 'result'
+  // Phases: 'setup' -> 'categories' -> 'reveal' -> 'discussion' -> 'voting' -> 'spy_guess' -> 'result'
   const [phase, setPhase] = useState(() => savedSession?.phase || 'setup');
 
   // Players config
@@ -167,6 +294,14 @@ export const SpyGame = ({ onExit }) => {
   });
   const [spyCount, setSpyCount] = useState(() => savedSession?.spyCount || 1);
   const [discussionDuration, setDiscussionDuration] = useState(() => savedSession?.discussionDuration ?? 120);
+
+  // Cumulative player scores across rounds
+  const [playerScores, setPlayerScores] = useState(() => {
+    if (savedSession?.playerScores && typeof savedSession.playerScores === 'object') {
+      return savedSession.playerScores;
+    }
+    return loadSavedPlayerScores();
+  });
 
   // Categories
   const [allCategories, setAllCategories] = useState([]);
@@ -184,8 +319,24 @@ export const SpyGame = ({ onExit }) => {
   const [timeLeft, setTimeLeft] = useState(() => savedSession?.timeLeft ?? 120);
   const [timerRunning, setTimerRunning] = useState(() => savedSession?.timerRunning || false);
 
-  // Vote
-  const [suspectedSpy, setSuspectedSpy] = useState(() => savedSession?.suspectedSpy || null);
+  // Individual Pass-the-Device Voting State
+  const [currentVoterIndex, setCurrentVoterIndex] = useState(() => savedSession?.currentVoterIndex || 0);
+  const [isVoterReady, setIsVoterReady] = useState(() => savedSession?.isVoterReady || false);
+  const [votes, setVotes] = useState(() => savedSession?.votes || {});
+  const [selectedSuspectInTurn, setSelectedSuspectInTurn] = useState(null);
+
+  // Spy Guessing Phase State
+  const [spyWordGuessOptions, setSpyWordGuessOptions] = useState(() => savedSession?.spyWordGuessOptions || []);
+  const [spySelectedWord, setSpySelectedWord] = useState(() => savedSession?.spySelectedWord || null);
+  const [spyGuessedCorrectly, setSpyGuessedCorrectly] = useState(() => savedSession?.spyGuessedCorrectly ?? null);
+  const [roundResultData, setRoundResultData] = useState(() => savedSession?.roundResultData || null);
+
+  // Persist Player Scores separately
+  useEffect(() => {
+    try {
+      localStorage.setItem(SPY_PLAYER_SCORES_KEY, JSON.stringify(playerScores));
+    } catch (e) {}
+  }, [playerScores]);
 
   // Persist Spy session across page refresh
   useEffect(() => {
@@ -203,7 +354,14 @@ export const SpyGame = ({ onExit }) => {
         currentRevealIndex,
         timeLeft,
         timerRunning,
-        suspectedSpy
+        currentVoterIndex,
+        isVoterReady,
+        votes,
+        spyWordGuessOptions,
+        spySelectedWord,
+        spyGuessedCorrectly,
+        roundResultData,
+        playerScores
       };
       localStorage.setItem(SPY_GAME_SESSION_KEY, JSON.stringify(dataToSave));
     } catch (e) {}
@@ -220,7 +378,14 @@ export const SpyGame = ({ onExit }) => {
     currentRevealIndex,
     timeLeft,
     timerRunning,
-    suspectedSpy
+    currentVoterIndex,
+    isVoterReady,
+    votes,
+    spyWordGuessOptions,
+    spySelectedWord,
+    spyGuessedCorrectly,
+    roundResultData,
+    playerScores
   ]);
 
   // Fetch full categories on mount
@@ -312,10 +477,40 @@ export const SpyGame = ({ onExit }) => {
     setIsHoldingToReveal(false);
     setTimeLeft(discussionDuration);
     setTimerRunning(false);
-    setSuspectedSpy(null);
+    setVotes({});
+    setCurrentVoterIndex(0);
+    setIsVoterReady(false);
+    setSelectedSuspectInTurn(null);
+    setSpySelectedWord(null);
+    setSpyGuessedCorrectly(null);
+    setRoundResultData(null);
     try {
       localStorage.removeItem(SPY_GAME_SESSION_KEY);
     } catch (e) {}
+  };
+
+  const handleResetScores = () => {
+    const resetObj = {};
+    playerNames.forEach((n, i) => {
+      const validName = (n && n.trim()) ? n.trim() : `لاعب ${i + 1}`;
+      resetObj[validName] = 0;
+    });
+    setPlayerScores(resetObj);
+    try {
+      localStorage.setItem(SPY_PLAYER_SCORES_KEY, JSON.stringify(resetObj));
+    } catch (e) {}
+  };
+
+  const handleAdjustScore = (playerName, delta) => {
+    setPlayerScores((prev) => {
+      const current = prev[playerName] || 0;
+      const updated = Math.max(0, current + delta);
+      const next = { ...prev, [playerName]: updated };
+      try {
+        localStorage.setItem(SPY_PLAYER_SCORES_KEY, JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
   };
 
   const handleExitGame = () => {
@@ -378,7 +573,23 @@ export const SpyGame = ({ onExit }) => {
     const randomWordObj = wordsList[Math.floor(Math.random() * wordsList.length)] || { word: 'شاورما' };
     const chosenWord = typeof randomWordObj === 'string' ? randomWordObj : randomWordObj.word;
 
-    // 5. Assign spy index/indices randomly
+    // 5. Generate 4 options for the Spy Word Guessing stage (chosen word + 3 distractors)
+    const categoryWords = (randomCat.words || []).map((w) => (typeof w === 'string' ? w : w.word));
+    const poolDistractors = categoryWords.filter((w) => w && w !== chosenWord);
+    if (poolDistractors.length < 3) {
+      DEFAULT_FALLBACK_CATEGORIES.forEach((c) => {
+        (c.words || []).forEach((w) => {
+          const wStr = typeof w === 'string' ? w : w.word;
+          if (wStr && wStr !== chosenWord && !poolDistractors.includes(wStr)) {
+            poolDistractors.push(wStr);
+          }
+        });
+      });
+    }
+    const shuffledDistractors = [...poolDistractors].sort(() => Math.random() - 0.5).slice(0, 3);
+    const guessOptions = [chosenWord, ...shuffledDistractors].sort(() => Math.random() - 0.5);
+
+    // 6. Assign spy index/indices randomly
     const total = playerNames.length;
     const spyIndices = new Set();
     while (spyIndices.size < Math.min(spyCount, total - 1)) {
@@ -398,7 +609,17 @@ export const SpyGame = ({ onExit }) => {
     setIsHoldingToReveal(false);
     setTimeLeft(discussionDuration);
     setTimerRunning(false);
-    setSuspectedSpy(null);
+
+    // Reset round states
+    setVotes({});
+    setCurrentVoterIndex(0);
+    setIsVoterReady(false);
+    setSelectedSuspectInTurn(null);
+    setSpyWordGuessOptions(guessOptions);
+    setSpySelectedWord(null);
+    setSpyGuessedCorrectly(null);
+    setRoundResultData(null);
+
     setPhase('reveal');
   };
 
@@ -415,7 +636,63 @@ export const SpyGame = ({ onExit }) => {
     return () => clearInterval(interval);
   }, [phase, timerRunning, timeLeft]);
 
+  // Handle individual vote submission
+  const handleConfirmVote = () => {
+    if (!selectedSuspectInTurn) return;
+    const currentVoter = assignedRoles[currentVoterIndex];
+    if (!currentVoter) return;
+
+    const updatedVotes = {
+      ...votes,
+      [currentVoter.name]: selectedSuspectInTurn
+    };
+    setVotes(updatedVotes);
+    setSelectedSuspectInTurn(null);
+
+    if (currentVoterIndex + 1 < assignedRoles.length) {
+      setCurrentVoterIndex((prev) => prev + 1);
+      setIsVoterReady(false);
+    } else {
+      // Everyone has cast their vote! Transition to Spy Word Guess Phase!
+      setPhase('spy_guess');
+    }
+  };
+
+  // Handle Spy Word Guess Submission & calculate round points
+  const handleSpyGuessSubmit = (chosenOptionOrNull) => {
+    const isCorrect = chosenOptionOrNull === secretWord;
+    setSpySelectedWord(chosenOptionOrNull);
+    setSpyGuessedCorrectly(isCorrect);
+
+    // Calculate complete scores
+    const results = calculateScores({
+      assignedRoles,
+      votes,
+      secretWord,
+      spyGuess: chosenOptionOrNull,
+      spyGuessedCorrectly: isCorrect
+    });
+    setRoundResultData(results);
+
+    // Accumulate into cumulative player scores
+    setPlayerScores((prev) => {
+      const nextScores = { ...prev };
+      assignedRoles.forEach((r) => {
+        const earned = results.roundPoints[r.name] || 0;
+        nextScores[r.name] = (nextScores[r.name] || 0) + earned;
+      });
+      try {
+        localStorage.setItem(SPY_PLAYER_SCORES_KEY, JSON.stringify(nextScores));
+      } catch (e) {}
+      return nextScores;
+    });
+
+    setPhase('result');
+  };
+
   const currentPlayer = assignedRoles[currentRevealIndex] || { name: 'اللاعب' };
+  const currentVoter = assignedRoles[currentVoterIndex] || { name: 'اللاعب' };
+  const spyPlayers = assignedRoles.filter((r) => r.isSpy);
 
   return (
     <div
@@ -495,6 +772,30 @@ export const SpyGame = ({ onExit }) => {
                 الجميع سيعرفون نفس الكلمة السرية، ما عدا "الدسوس"... ومهمتكم كشفه من طريقة كلامه!
               </p>
             </div>
+
+            {/* Cumulative Leaderboard Preview if exists */}
+            {Object.keys(playerScores).length > 0 && Object.values(playerScores).some((s) => s > 0) && (
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <Trophy className="w-5 h-5 text-amber-400" />
+                  <div>
+                    <h4 className="text-xs font-black text-amber-300">
+                      لوحة الصدارة محفوظة من الجولات السابقة
+                    </h4>
+                    <span className="text-[11px] text-slate-300">
+                      يمكنك مواصلة تجميع النقاط أو تصفيرها للبدء من الصفر
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleResetScores}
+                  className="px-2.5 py-1 rounded-lg bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 text-xs font-bold border border-rose-800/60 transition cursor-pointer"
+                >
+                  تصفير النقاط
+                </button>
+              </div>
+            )}
 
             {/* Player Count Selector */}
             <div className="space-y-2">
@@ -817,7 +1118,7 @@ export const SpyGame = ({ onExit }) => {
                       فئة الكلمة هي: <span className="text-white font-black">{activeCategory?.name}</span>
                     </div>
                     <p className="text-[11px] text-slate-300 mt-2 font-medium">
-                      الجميع يعرفون الكلمة السرية ما عداك! استمع لنقاشهم جيداً وتظاهر بأنك تعرفها دون أن يكتشفوك!
+                      الجميع يعرفون الكلمة السرية ما عداك! استمع لنقاشهم جيداً وتظاهر بأنك تعرفها لتكتشف الكلمة دون أن يكتشفوك!
                     </p>
                   </motion.div>
                 ) : (
@@ -936,12 +1237,12 @@ export const SpyGame = ({ onExit }) => {
                 اللاعبون في الجلسة:
               </span>
               <div className="flex flex-wrap justify-center gap-2">
-                {playerNames.map((name, i) => (
+                {assignedRoles.map((r, i) => (
                   <span
                     key={i}
                     className="px-3 py-1 rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold text-slate-200"
                   >
-                    👤 {name}
+                    👤 {r.name}
                   </span>
                 ))}
               </div>
@@ -950,86 +1251,211 @@ export const SpyGame = ({ onExit }) => {
             {/* Action Buttons */}
             <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row gap-3">
               <button
-                onClick={() => setPhase('vote')}
+                onClick={() => {
+                  setPhase('voting');
+                  setCurrentVoterIndex(0);
+                  setIsVoterReady(false);
+                  setSelectedSuspectInTurn(null);
+                  setVotes({});
+                }}
                 className="flex-1 py-4 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 text-white font-black text-sm sm:text-base rounded-2xl shadow-lg shadow-rose-600/20 active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>حان وقت التصويت! كشف الدسوس 🗳️</span>
+                <Vote className="w-5 h-5" />
+                <span>بدء التصويت السري الفردي (كل لاعب لحاله) 🗳️</span>
               </button>
             </div>
           </motion.div>
         )}
 
         {/* ======================================================== */}
-        {/* PHASE 5: VOTING                                         */}
+        {/* PHASE 5: INDIVIDUAL PASS-THE-DEVICE VOTING (كل واحد يصوت) */}
         {/* ======================================================== */}
-        {phase === 'vote' && (
+        {phase === 'voting' && (
           <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="w-full max-w-xl bg-slate-900 rounded-3xl p-6 sm:p-10 border border-slate-800 shadow-2xl text-center space-y-6"
+            key={currentVoterIndex}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-lg bg-slate-900 rounded-3xl p-6 sm:p-10 border border-slate-800 shadow-2xl text-center space-y-6"
           >
-            <div className="space-y-1">
-              <span className="px-3.5 py-1 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/30 text-xs font-black">
-                مرحلة الحسم والتصويت
+            {/* Header / Progress */}
+            <div className="flex items-center justify-between text-xs font-bold text-slate-400 border-b border-slate-800 pb-3">
+              <span className="flex items-center gap-1.5 text-purple-400 font-black">
+                <Vote className="w-4 h-4" />
+                <span>التصويت السري الفردي</span>
               </span>
-              <h2 className="text-2xl font-black text-white mt-1">
-                من هو الشخص المشتبه به؟
+              <span className="text-amber-400 font-black">
+                المصوّت {currentVoterIndex + 1} من {assignedRoles.length}
+              </span>
+            </div>
+
+            {!isVoterReady ? (
+              /* Hand-over Screen: Protects voting privacy */
+              <div className="py-6 space-y-5">
+                <div className="w-16 h-16 rounded-3xl bg-purple-950/60 border border-purple-800/80 text-purple-400 flex items-center justify-center mx-auto shadow-lg">
+                  <Lock className="w-8 h-8" />
+                </div>
+                <div className="space-y-2">
+                  <span className="text-xs font-black text-purple-400 uppercase tracking-wider block">
+                    سرية تامة 🤫
+                  </span>
+                  <h3 className="text-xl sm:text-2xl font-black text-white">
+                    مرر الجهاز إلى: <span className="text-amber-400">[{currentVoter.name}]</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+                    تأكد ألا أحد ينظر إلى الشاشة سواك، ثم اضغط على الزر أدناه لاختيار المشتبه به سراً.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsVoterReady(true)}
+                  className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-black text-sm sm:text-base rounded-2xl shadow-lg shadow-purple-600/20 active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Unlock className="w-5 h-5" />
+                  <span>أنا [{currentVoter.name}]، افتح شاشة التصويت 🔒</span>
+                </button>
+              </div>
+            ) : (
+              /* Secret Voting Choice Screen */
+              <div className="space-y-5">
+                <div className="space-y-1.5">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-xs font-bold text-slate-300">
+                    <span>صوت اللاعب:</span>
+                    <span className="text-amber-400 font-black">{currentVoter.name}</span>
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-black text-white">
+                    من هو الشخص الذي تشك بأنه الدسوس؟
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    صوتك سري بالكامل، ولن يعرف أحد اختيارك حتى انتهاء مرحلة التصويت وتخمين الدسوس!
+                  </p>
+                </div>
+
+                {/* Candidates Grid (Exclude current voter) */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-60 overflow-y-auto p-1">
+                  {assignedRoles
+                    .filter((r) => r.name !== currentVoter.name)
+                    .map((r) => {
+                      const isSelected = selectedSuspectInTurn === r.name;
+                      return (
+                        <button
+                          key={r.name}
+                          type="button"
+                          onClick={() => setSelectedSuspectInTurn(r.name)}
+                          className={`p-3.5 rounded-2xl border text-xs sm:text-sm font-black transition cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
+                            isSelected
+                              ? 'bg-rose-600 text-white border-rose-400 ring-2 ring-rose-400/40 shadow-lg scale-102'
+                              : 'bg-slate-800/90 hover:bg-slate-800 text-slate-200 border-slate-700'
+                          }`}
+                        >
+                          <span className="text-lg">👤</span>
+                          <span className="truncate w-full text-center">{r.name}</span>
+                        </button>
+                      );
+                    })}
+                </div>
+
+                {/* Confirm Vote Button */}
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    disabled={!selectedSuspectInTurn}
+                    onClick={handleConfirmVote}
+                    className="w-full py-3.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-sm sm:text-base rounded-2xl shadow-lg shadow-amber-500/20 active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Check className="w-5 h-5 stroke-[3]" />
+                    <span>
+                      {currentVoterIndex + 1 < assignedRoles.length
+                        ? 'تأكيد صوتي وتمرير الجهاز للاعب التالي ➡️'
+                        : 'تأكيد آخر صوت والانتقال لمرحلة الحسم 🎭'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* ======================================================== */}
+        {/* PHASE 5.5: SPY SECRET WORD GUESSING (تخمين الدسوس للكلمة)   */}
+        {/* ======================================================== */}
+        {phase === 'spy_guess' && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-lg bg-slate-900 rounded-3xl p-6 sm:p-10 border border-slate-800 shadow-2xl text-center space-y-6"
+          >
+            <div className="space-y-2">
+              <span className="px-3.5 py-1 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/30 text-xs font-black">
+                مرحلة الدسوس الذهبية 🧠
+              </span>
+              <h2 className="text-xl sm:text-2xl font-black text-white">
+                تخمين الدسوس (Spy Master) للكلمة السرية
               </h2>
-              <p className="text-xs text-slate-400">
-                تشاوروا وصوتوا على الشخص الذي تشكون بأنه الدسوس!
+              <p className="text-xs text-slate-400 leading-relaxed">
+                سلّموا الجهاز إلى <span className="text-rose-400 font-bold">الدسوس</span>! فئة الكلمة كانت:{' '}
+                <span className="text-amber-400 font-black">[{activeCategory?.name}]</span>. إذا استطاع الدسوس تخمين الكلمة بنجاح، يحصل على{' '}
+                <span className="text-emerald-400 font-black">+100 نقطة إضافية ومكافأة هروب</span>!
               </p>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-60 overflow-y-auto p-1">
-              {playerNames.map((name, i) => {
-                const isSelected = suspectedSpy === name;
-                return (
+            {/* Word Options Grid for the Spy */}
+            <div className="space-y-2">
+              <span className="text-[11px] font-bold text-slate-400 block text-right pr-1">
+                اختر الكلمة السرية التي تعتقد أن المواطنين كانوا يتحدثون عنها:
+              </span>
+              <div className="grid grid-cols-2 gap-2.5">
+                {spyWordGuessOptions.map((optWord) => (
                   <button
-                    key={i}
-                    onClick={() => setSuspectedSpy(name)}
-                    className={`p-3 rounded-2xl border text-xs sm:text-sm font-black transition cursor-pointer flex flex-col items-center justify-center gap-1 ${
-                      isSelected
-                        ? 'bg-rose-600 text-white border-rose-400 ring-2 ring-rose-400/30 shadow-lg'
-                        : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
-                    }`}
+                    key={optWord}
+                    type="button"
+                    onClick={() => handleSpyGuessSubmit(optWord)}
+                    className="p-4 rounded-2xl bg-slate-800/90 hover:bg-amber-500/20 hover:border-amber-400/60 border border-slate-700 text-slate-100 hover:text-amber-300 font-black text-sm transition-all active:scale-95 cursor-pointer shadow-sm"
                   >
-                    <span>👤</span>
-                    <span>{name}</span>
+                    🏷️ {optWord}
                   </button>
-                );
-              })}
+                ))}
+              </div>
             </div>
 
-            <div className="pt-4 border-t border-slate-800">
+            {/* Concede / Don't Know Option */}
+            <div className="pt-2 border-t border-slate-800">
               <button
-                disabled={!suspectedSpy}
-                onClick={() => setPhase('result')}
-                className="w-full py-4 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-sm sm:text-base rounded-2xl shadow-lg shadow-amber-500/20 active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                type="button"
+                onClick={() => handleSpyGuessSubmit(null)}
+                className="w-full py-3 bg-slate-800/60 hover:bg-slate-800 text-slate-400 hover:text-slate-200 font-bold text-xs rounded-xl border border-slate-700/80 transition cursor-pointer"
               >
-                <span>كشف الحقيقة والنتيجة 🎭</span>
-                <ArrowLeft className="w-5 h-5" />
+                🤷‍♂️ الدسوس لم يعرف الكلمة (تخطي واحتساب النقاط)
               </button>
             </div>
           </motion.div>
         )}
 
         {/* ======================================================== */}
-        {/* PHASE 6: FINAL RESULT & PODIUM                           */}
+        {/* PHASE 6: FINAL RESULT, VOTES BREAKDOWN & LEADERBOARD      */}
         {/* ======================================================== */}
         {phase === 'result' && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-xl bg-slate-900 rounded-3xl p-6 sm:p-10 border border-slate-800 shadow-2xl text-center space-y-6"
+            className="w-full max-w-2xl bg-slate-900 rounded-3xl p-6 sm:p-10 border border-slate-800 shadow-2xl space-y-6"
           >
             {/* Outcome Icon & Header */}
             {(() => {
+              const resData = roundResultData || calculateScores({
+                assignedRoles,
+                votes,
+                secretWord,
+                spyGuess: spySelectedWord,
+                spyGuessedCorrectly
+              });
+
               const actualSpies = assignedRoles.filter((r) => r.isSpy).map((r) => r.name);
-              const caught = actualSpies.includes(suspectedSpy);
+              const caught = resData.spyCaught;
 
               return (
                 <>
-                  <div className="space-y-2">
+                  <div className="text-center space-y-2">
                     <span className="text-5xl">{caught ? '🎉' : '🕵️‍♂️'}</span>
                     <h2
                       className={`text-2xl sm:text-3xl font-black ${
@@ -1038,49 +1464,234 @@ export const SpyGame = ({ onExit }) => {
                     >
                       {caught ? 'كشفتم الدسوس بنجاح!' : 'فاز الدسوس وخداع الجميع!'}
                     </h2>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-slate-400 max-w-md mx-auto">
                       {caught
-                        ? `أحسنتم! تم كشف الدسوس [${suspectedSpy}] واقتناص الفوز للمواطنين الشرفاء!`
-                        : `الدسوس نجح في تمويه نفسه وخداعكم!`}
+                        ? `أحسنتم! حاز الدسوس الحقيقي على أعلى نسبة تصويت واقتنص المواطنون الشرفاء الفوز!`
+                        : `نجح الدسوس في تمويه نفسه وتشتيت أصوات المواطنين الشرفاء!`}
                     </p>
                   </div>
 
                   {/* Secret Information Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                    <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2">
+                    {/* Actual Spy */}
+                    <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 text-center">
                       <span className="text-[11px] text-slate-400 font-bold block mb-1">
-                        الدسوس الحقيقي:
+                        🕵️‍♂️ الدسوس الحقيقي:
                       </span>
-                      <div className="text-base font-black text-rose-400">
+                      <div className="text-sm font-black text-rose-400 truncate">
                         {actualSpies.join(' ، ')}
                       </div>
                     </div>
 
-                    <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700">
+                    {/* Secret Word */}
+                    <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 text-center">
                       <span className="text-[11px] text-slate-400 font-bold block mb-1">
-                        الكلمة السرية ({activeCategory?.name}):
+                        🔑 الكلمة ({activeCategory?.name}):
                       </span>
-                      <div className="text-base font-black text-amber-400">
+                      <div className="text-sm font-black text-amber-400 truncate">
                         {secretWord}
+                      </div>
+                    </div>
+
+                    {/* Spy Word Guess Result */}
+                    <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 text-center">
+                      <span className="text-[11px] text-slate-400 font-bold block mb-1">
+                        🧠 تخمين الدسوس للكلمة:
+                      </span>
+                      <div
+                        className={`text-xs font-black truncate ${
+                          spyGuessedCorrectly ? 'text-emerald-400' : 'text-slate-400'
+                        }`}
+                      >
+                        {spyGuessedCorrectly
+                          ? `عرفها بنجاح (+100) 🎯`
+                          : spySelectedWord
+                          ? `خاطئ (${spySelectedWord}) ❌`
+                          : 'لم يخمن (تخطي) 🤷‍♂️'}
                       </div>
                     </div>
                   </div>
 
-                  {/* Replay Buttons */}
-                  <div className="pt-6 border-t border-slate-800 flex flex-col sm:flex-row gap-3">
+                  {/* Voting Record (Who Voted for Whom) */}
+                  <div className="space-y-2 bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
+                    <div className="flex items-center justify-between text-xs font-black text-slate-300">
+                      <span className="flex items-center gap-1.5">
+                        <Vote className="w-4 h-4 text-purple-400" />
+                        <span>سجل أصوات هذه الجولة:</span>
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        الأعلى تصويتاً: {resData.mostVotedPlayers.join(' ، ')} ({resData.voteTally[resData.mostVotedPlayers[0]] || 0} أصوات)
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      {assignedRoles.map((voter) => {
+                        const target = votes[voter.name];
+                        const isCorrectOnSpy = actualSpies.includes(target);
+                        const isVoterSpy = voter.isSpy;
+
+                        return (
+                          <div
+                            key={voter.name}
+                            className="flex items-center justify-between p-2 rounded-xl bg-slate-900 border border-slate-800/80"
+                          >
+                            <span className="font-bold text-slate-200">
+                              {isVoterSpy ? '🕵️‍♂️' : '👤'} {voter.name}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] text-slate-400">صوّت لـ</span>
+                              <span
+                                className={`px-2 py-0.5 rounded-lg text-[11px] font-black border ${
+                                  isCorrectOnSpy
+                                    ? 'bg-emerald-950/70 border-emerald-600/70 text-emerald-300'
+                                    : 'bg-slate-800 border-slate-700 text-slate-300'
+                                }`}
+                              >
+                                {target || 'لم يصوّت'} {isCorrectOnSpy ? '🎯' : ''}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Round Points Earned */}
+                  <div className="space-y-2 bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
+                    <div className="flex items-center justify-between text-xs font-black text-slate-300">
+                      <span className="flex items-center gap-1.5">
+                        <Award className="w-4 h-4 text-amber-400" />
+                        <span>نقاط هذه الجولة (تفاصيل الاحتساب):</span>
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {assignedRoles.map((r) => {
+                        const earned = resData.roundPoints[r.name] || 0;
+                        const reasons = resData.pointBreakdowns[r.name] || [];
+
+                        return (
+                          <div
+                            key={r.name}
+                            className="p-2.5 rounded-xl bg-slate-900 border border-slate-800/80 flex flex-col justify-between gap-1.5"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-slate-200">
+                                {r.isSpy ? '🕵️‍♂️' : '👤'} {r.name}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-400 font-black text-xs">
+                                +{earned} نقطة
+                              </span>
+                            </div>
+
+                            {/* Reasons Badges */}
+                            <div className="flex flex-wrap gap-1">
+                              {reasons.length > 0 ? (
+                                reasons.map((b, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="px-1.5 py-0.5 rounded-md bg-slate-800 text-[10px] text-slate-300 border border-slate-700/60"
+                                  >
+                                    {b.label} (+{b.points})
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-[10px] text-slate-500">لم يحرز نقاطاً في هذه الجولة</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Cumulative Leaderboard (لوحة الصدارة الإجمالية) */}
+                  <div className="space-y-2 bg-gradient-to-br from-amber-500/10 via-slate-900 to-slate-900 p-4 rounded-2xl border border-amber-500/30">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Trophy className="w-5 h-5 text-amber-400" />
+                        <h4 className="text-sm font-black text-amber-300">
+                          لوحة الصدارة الإجمالية (مجموع كل الجولات)
+                        </h4>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleResetScores}
+                        className="text-[10px] text-rose-400 hover:text-rose-300 font-bold transition cursor-pointer"
+                      >
+                        تصفير النقاط 🔁
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5 pt-1">
+                      {assignedRoles
+                        .map((r) => ({
+                          name: r.name,
+                          score: playerScores[r.name] || 0
+                        }))
+                        .sort((a, b) => b.score - a.score)
+                        .map((playerItem, rank) => {
+                          const medal = rank === 0 ? '🥇' : rank === 1 ? '🥈' : rank === 2 ? '🥉' : `#${rank + 1}`;
+                          return (
+                            <div
+                              key={playerItem.name}
+                              className={`flex items-center justify-between p-2.5 rounded-xl border transition ${
+                                rank === 0
+                                  ? 'bg-amber-500/15 border-amber-500/50 text-white font-black'
+                                  : 'bg-slate-900/90 border-slate-800 text-slate-200'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <span className="text-base font-black w-6 text-center">{medal}</span>
+                                <span className="text-xs font-bold">{playerItem.name}</span>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-black text-amber-400">
+                                  {playerItem.score} نقطة
+                                </span>
+
+                                {/* Quick +/- 10 adjustment */}
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAdjustScore(playerItem.name, 10)}
+                                    className="w-5 h-5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold flex items-center justify-center cursor-pointer border border-slate-700"
+                                    title="إضافة 10 نقاط يدوياً"
+                                  >
+                                    +
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAdjustScore(playerItem.name, -10)}
+                                    className="w-5 h-5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold flex items-center justify-center cursor-pointer border border-slate-700"
+                                    title="خصم 10 نقاط يدوياً"
+                                  >
+                                    -
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+
+                  {/* Replay & Action Buttons */}
+                  <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row gap-3">
                     <button
                       onClick={startSecretRound}
-                      className="flex-1 py-3.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-sm sm:text-base rounded-2xl shadow-lg shadow-amber-500/20 active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer"
+                      className="flex-1 py-4 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-sm sm:text-base rounded-2xl shadow-lg shadow-amber-500/20 active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer"
                     >
-                      <RotateCcw className="w-4 h-4" />
-                      <span>جولة جديدة بنفس الفئات</span>
+                      <RotateCcw className="w-5 h-5" />
+                      <span>جولة جديدة (مع الاحتفاظ بالنقاط) 🔄</span>
                     </button>
 
                     <button
                       onClick={handleEndRound}
-                      className="px-5 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs sm:text-sm rounded-2xl transition border border-slate-700 cursor-pointer"
+                      className="px-5 py-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs sm:text-sm rounded-2xl transition border border-slate-700 cursor-pointer"
                     >
-                      تغيير الإعدادات
+                      تغيير الإعدادات ⚙️
                     </button>
                   </div>
                 </>
