@@ -23,10 +23,15 @@ import {
   Briefcase,
   Film,
   Laptop,
-  Landmark
+  Landmark,
+  Gift,
+  CreditCard
 } from 'lucide-react';
 import logo from '../../assets/logo.png';
 import { SocialFooter } from '../SocialFooter';
+import { useGameStore } from '../../store/useGameStore';
+import { CheckoutModal } from '../CheckoutModal';
+import { API_BASE } from '../../utils/api';
 
 // Fallback default categories if backend is loading or offline
 const DEFAULT_FALLBACK_CATEGORIES = [
@@ -137,6 +142,17 @@ const SUGGESTED_NAMES = [
 
 export const SpyGame = ({ onExit }) => {
   const savedSession = loadSavedSpySession();
+
+  const {
+    availableGames,
+    setAvailableGames,
+    currentUser,
+    getAuthToken
+  } = useGameStore();
+
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [balanceAlert, setBalanceAlert] = useState(null);
+  const [isConsuming, setIsConsuming] = useState(false);
 
   // Phases: 'setup' -> 'categories' -> 'reveal' -> 'discussion' -> 'vote' -> 'result'
   const [phase, setPhase] = useState(() => savedSession?.phase || 'setup');
@@ -309,18 +325,60 @@ export const SpyGame = ({ onExit }) => {
     onExit?.();
   };
 
-  // Start the secret round
-  const startSecretRound = () => {
-    // 1. Pick a random category from selected
+  // Start the secret round (deducts 1 game session)
+  const startSecretRound = async () => {
+    if (isConsuming) return;
+
+    // 1. Strictly verify games balance
+    if (availableGames <= 0) {
+      setBalanceAlert('نفد رصيدك من الألعاب! يرجى شحن رصيدك عبر باقات الألعاب لتتمكن من بدء جولة جديدة في لعبة مين الدسوس.');
+      return;
+    }
+
+    setIsConsuming(true);
+    setBalanceAlert(null);
+
+    try {
+      // 2. Atomically consume 1 game on backend
+      const token = getAuthToken();
+      const consumeRes = await fetch(`${API_BASE}/promo/consume-game`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ user_id: currentUser?.id })
+      });
+
+      if (!consumeRes.ok) {
+        const errorData = await consumeRes.json().catch(() => ({}));
+        setBalanceAlert(errorData.detail || 'نفد رصيدك من الألعاب! يرجى شحن رصيدك لتتمكن من خوض جولة جديدة.');
+        setAvailableGames(0);
+        setIsConsuming(false);
+        return;
+      }
+
+      const consumeData = await consumeRes.json();
+      const updatedBalance = typeof consumeData.remaining_games === 'number'
+        ? consumeData.remaining_games
+        : Math.max(0, availableGames - 1);
+      setAvailableGames(updatedBalance);
+    } catch (err) {
+      console.error('Failed to consume game session:', err);
+    } finally {
+      setIsConsuming(false);
+    }
+
+    // 3. Pick a random category from selected
     const activeCats = allCategories.filter((c) => selectedCategoryIds.includes(c.id));
     const randomCat = activeCats[Math.floor(Math.random() * activeCats.length)] || allCategories[0];
 
-    // 2. Pick a random word from this category
+    // 4. Pick a random word from this category
     const wordsList = randomCat.words || [];
     const randomWordObj = wordsList[Math.floor(Math.random() * wordsList.length)] || { word: 'شاورما' };
     const chosenWord = typeof randomWordObj === 'string' ? randomWordObj : randomWordObj.word;
 
-    // 3. Assign spy index/indices randomly
+    // 5. Assign spy index/indices randomly
     const total = playerNames.length;
     const spyIndices = new Set();
     while (spyIndices.size < Math.min(spyCount, total - 1)) {
@@ -384,6 +442,25 @@ export const SpyGame = ({ onExit }) => {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Games Balance Badge */}
+          <div className="px-3 py-1.5 rounded-xl bg-slate-800/90 border border-slate-700 flex items-center gap-1.5 text-xs font-bold text-slate-200">
+            <Gift className="w-3.5 h-3.5 text-orange-400 animate-pulse" />
+            <span className="hidden sm:inline">رصيد الجولات:</span>
+            <span className="px-1.5 py-0.5 rounded-md bg-orange-500/20 text-orange-400 font-black">
+              {availableGames}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsCheckoutOpen(true)}
+            className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-slate-950 font-black text-xs transition flex items-center gap-1 shadow-sm active:scale-95 cursor-pointer"
+            title="شراء باقات ألعاب عبر PayPal"
+          >
+            <CreditCard className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">شحن الرصيد</span>
+          </button>
+
           {phase !== 'setup' && (
             <button
               onClick={handleEndRound}
@@ -1015,6 +1092,58 @@ export const SpyGame = ({ onExit }) => {
 
       {/* Social Media Footer */}
       <SocialFooter isDark={true} />
+
+      {/* Balance Exhaustion Alert Modal */}
+      <AnimatePresence>
+        {balanceAlert && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm dir-rtl" dir="rtl">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full text-center shadow-2xl"
+            >
+              <div className="w-16 h-16 rounded-2xl bg-rose-950/60 border border-rose-800/80 text-rose-500 flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-black text-white mb-2">
+                نفد رصيدك من الألعاب!
+              </h3>
+              <p className="text-slate-400 text-xs sm:text-sm font-medium leading-relaxed mb-6">
+                {balanceAlert}
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBalanceAlert(null);
+                    setIsCheckoutOpen(true);
+                  }}
+                  className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 text-slate-950 font-black text-xs sm:text-sm shadow-lg shadow-orange-500/20 active:scale-95 transition cursor-pointer"
+                >
+                  شحن رصيد الجولات 💳
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBalanceAlert(null)}
+                  className="px-4 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition cursor-pointer"
+                >
+                  إغلاق
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* PayPal Checkout Modal */}
+      <CheckoutModal
+        isOpen={isCheckoutOpen}
+        onClose={() => setIsCheckoutOpen(false)}
+        onPaymentSuccess={(newBal) => {
+          setAvailableGames(newBal);
+        }}
+      />
     </div>
   );
 };
