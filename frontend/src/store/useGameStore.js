@@ -662,24 +662,40 @@ cost: 100
 };
 
 const cost = catalogItem.cost;
+const hasCharge = Boolean(currentTeam.powerups && currentTeam.powerups[powerupId] > 0);
+const canAffordPoints = currentTeam.score >= cost;
 
-// Check points score
-if (currentTeam.score < cost) {
+// Check points score or available charges
+if (!hasCharge && !canAffordPoints) {
 set({
 gameBanner: {
 type: 'warning',
 title: 'رصيد النقاط غير كافٍ!',
-message: `تكلفة سلاح [${catalogItem.name}] هي ${cost} نقطة. رصيد فريقك الحالي هو ${currentTeam.score} نقطة. اكسب نقاطاً من الأسئلة أولاً!`
+message: `تكلفة سلاح [${catalogItem.name}] هي ${cost} نقطة وليس لديك شحنات متبقية. اكسب نقاطاً من الأسئلة أولاً!`
 }
 });
 return;
 }
 
-// Deduct points cost from active team score
+// Deduct: consume charge if available, otherwise deduct points from score
 set(state => ({
-teams: state.teams.map((t, idx) =>
-idx === currentTurn ? { ...t, score: Math.max(0, t.score - cost) } : t
-)
+teams: state.teams.map((t, idx) => {
+if (idx !== currentTurn) return t;
+if (hasCharge) {
+return {
+...t,
+powerups: {
+...t.powerups,
+[powerupId]: Math.max(0, (t.powerups?.[powerupId] || 1) - 1)
+}
+};
+} else {
+return {
+...t,
+score: Math.max(0, t.score - cost)
+};
+}
+})
 }));
 
 if (powerupId === 'double') {
@@ -688,7 +704,9 @@ activeModifier: 'double',
 gameBanner: {
 type: 'double',
 title: 'تم تفعيل دبل النقاط (x2)!',
-message: `تم خصم ${cost} نقطة. ستحصل على ضعف النقاط (x2) عند الإجابة الصحيحة على السؤال القادم!`
+message: hasCharge
+? 'تم استخدام شحنة دبل النقاط! ستحصل على ضعف النقاط (x2) عند الإجابة الصحيحة!'
+: `تم خصم ${cost} نقطة. ستحصل على ضعف النقاط (x2) عند الإجابة الصحيحة على السؤال القادم!`
 }
 });
 confetti({ particleCount: 55, spread: 60 });
@@ -700,7 +718,9 @@ teams: state.teams.map((t, idx) => idx === rivalIndex ? { ...t, isFrozen: true }
 gameBanner: {
 type: 'freeze',
 title: 'تم تجميد الخصم!',
-message: `تم خصم ${cost} نقطة. تم تجميد فريق [${rivalName}] وحرمانه من استخدام أي سلاح في دوره القادم!`
+message: hasCharge
+? `تم استخدام شحنة التجميد! تم تجميد فريق [${rivalName}] وحرمانه من استخدام أي سلاح في دوره القادم!`
+: `تم خصم ${cost} نقطة. تم تجميد فريق [${rivalName}] وحرمانه من استخدام أي سلاح في دوره القادم!`
 }
 }));
 confetti({ particleCount: 55, spread: 60 });
@@ -710,33 +730,44 @@ isStealMode: true,
 gameBanner: {
 type: 'steal',
 title: 'وضع سرقة السؤال مفعّل!',
-message: `تم خصم ${cost} نقطة. اختر الآن أي سؤال متاح من فئات الفريق الخصم لسرقته وحرمانه منه نهائياً!`
+message: hasCharge
+? 'تم استخدام شحنة سرقة السؤال! اختر الآن أي سؤال متاح من فئات الفريق الخصم لسرقته!'
+: `تم خصم ${cost} نقطة. اختر الآن أي سؤال متاح من فئات الفريق الخصم لسرقته وحرمانه منه نهائياً!`
 }
 });
 confetti({ particleCount: 70, spread: 70 });
 } else if (powerupId === 'fifty') {
 const { activeQuestion } = get();
-if (activeQuestion && activeQuestion.options && !get().isAnswerRevealed) {
-const wrongOpts = activeQuestion.options.filter(o => o !== activeQuestion.correct_answer);
+const options = activeQuestion?.options_json || activeQuestion?.options || [];
+if (activeQuestion && options.length >= 3 && !get().isAnswerRevealed) {
+const correctAns = String(activeQuestion.correct_answer || '').trim();
+const wrongOpts = options.filter(o => String(o).trim() !== correctAns);
 const shuffled = [...wrongOpts].sort(() => Math.random() - 0.5);
 const toEliminate = shuffled.slice(0, 2);
 set({
 eliminatedOptions: toEliminate,
+activeModifier: 'fifty',
 gameBanner: {
 type: 'fifty',
-title: 'تفعيل 50:50!',
-message: `تم خصم ${cost} نقطة وحذف خيارين خاطئين!`
+title: '🎯 تم تفعيل 50:50 بنجاح!',
+message: hasCharge
+? 'تم استخدام شحنة 50:50 وحذف خيارين خاطئين! اختر الآن من بين الخيارين المتبقيين.'
+: `تم خصم ${cost} نقطة وحذف خيارين خاطئين! اختر الآن من بين الخيارين المتبقيين.`
 }
 });
+confetti({ particleCount: 65, spread: 70 });
 } else {
 set({
 activeModifier: 'fifty',
 gameBanner: {
 type: 'fifty',
-title: 'تفعيل 50:50!',
-message: `تم خصم ${cost} نقطة. سيتم حذف خيارين خاطئين فور فتح السؤال القادم!`
+title: '🎯 تم تجهيز 50:50!',
+message: hasCharge
+? 'تم تفعيل 50:50! سيتم استبعاد خيارين خاطئين تلقائياً فور فتح السؤال القادم!'
+: `تم خصم ${cost} نقطة. سيتم حذف خيارين خاطئين فور فتح السؤال القادم!`
 }
 });
+confetti({ particleCount: 50, spread: 50 });
 }
 }
 },
@@ -922,13 +953,27 @@ message: `أضيفت 100 نقطة فورية هدية إلى رصيد فريق [
 }
 }
 
+let eliminated = [];
+if (activeMod === 'fifty' && tile.question) {
+const opts = tile.question.options_json || tile.question.options || [];
+const correctAns = String(tile.question.correct_answer || '').trim();
+const wrongOpts = opts.filter(o => String(o).trim() !== correctAns);
+const shuffled = [...wrongOpts].sort(() => Math.random() - 0.5);
+eliminated = shuffled.slice(0, 2);
+banner = {
+type: 'fifty',
+title: '🎯 تم تفعيل 50:50 تلقائياً!',
+message: 'تم استبعاد خيارين خاطئين لهذا السؤال بنجاح!'
+};
+}
+
 set({
 activeTile: fullTileData,
 activeQuestion: tile.question,
 selectedOption: null,
 isAnswerRevealed: false,
 isCorrect: null,
-eliminatedOptions: [],
+eliminatedOptions: eliminated,
 questionModalOpen: true,
 activeModifier: activeMod,
 mysteryModifier: mysteryMod,

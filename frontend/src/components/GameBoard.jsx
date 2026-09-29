@@ -60,7 +60,8 @@ handleAnswer,
 closeQuestionModal,
 resetGame,
 initGame,
-availableGames
+availableGames,
+eliminatedOptions
 } = useGameStore();
 
 // If board not yet created (e.g. refreshed page directly on board stage), initialize it
@@ -266,7 +267,9 @@ shortName: powerupId,
 cost: 100,
 emoji: ''
 };
-const canAfford = team.score >= pData.cost;
+const pCount = team.powerups?.[powerupId] ?? 0;
+const hasCharge = pCount > 0;
+const canAfford = team.score >= pData.cost || hasCharge;
 const isDisabled = !isActive || team.isFrozen || !canAfford;
 
 return (
@@ -275,7 +278,7 @@ key={powerupId}
 type="button"
 disabled={isDisabled}
 onClick={() => activatePowerup(team.id, powerupId)}
-title={`تفعيل ${pData.name} (${pData.cost}ن)`}
+title={hasCharge ? `تفعيل ${pData.name} (شحنة متبقية x${pCount})` : `تفعيل ${pData.name} (${pData.cost}ن)`}
 className={`px-1.5 py-0.5 rounded-md text-[9px] font-black flex items-center gap-0.5 border transition-all ${
 isDisabled
 ? 'bg-slate-100 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed'
@@ -286,6 +289,11 @@ isDisabled
 >
 <span>{pData.emoji}</span>
 <span>{pData.shortName}</span>
+{hasCharge ? (
+<span className="text-[8px] opacity-80 mr-0.5">x{pCount}</span>
+) : (
+<span className="text-[8px] opacity-75 mr-0.5">{pData.cost}ن</span>
+)}
 </button>
 );
 })}
@@ -693,6 +701,12 @@ timeLeft <= (reboundState.isActive ? 3 : 5) ? 'text-rose-600 animate-pulse' : 't
 <span> تأثير التجميد نشط على المنافس!</span>
 </div>
 )}
+{(activeModifier === 'fifty' || (eliminatedOptions && eliminatedOptions.length > 0)) && (
+<div className="bg-amber-100 text-amber-950 border-amber-300 w-full py-2 rounded-2xl flex items-center justify-center gap-2">
+<HelpCircle className="w-4 h-4 text-amber-700" />
+<span>🎯 ميزة 50:50 نشطة! تم حذف خيارين خاطئين لتسهيل الإجابة.</span>
+</div>
+)}
 </div>
 )}
 
@@ -768,18 +782,62 @@ className="px-6 py-3 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-b
 ) : (
 /* Standard 4-Option Grid (أ، ب، ج، د) */
 <div className="space-y-4">
+{/* 50:50 Tactical Weapon Button Inside Question Modal */}
+{!isAnswerRevealed && !reboundState.isActive && currentTeam.loadout?.includes('fifty') && (
+<div className="flex items-center justify-center pt-1 pb-1">
+<button
+type="button"
+disabled={(eliminatedOptions || []).length > 0 || currentTeam.isFrozen || (!((currentTeam.powerups?.fifty || 0) > 0) && currentTeam.score < 100)}
+onClick={() => activatePowerup(currentTeam.id, 'fifty')}
+className={`px-5 py-2.5 rounded-2xl font-black text-xs sm:text-sm flex items-center gap-2 border transition-all shadow-md active:scale-95 cursor-pointer ${
+(eliminatedOptions || []).length > 0
+? 'bg-amber-50 border-amber-200 text-amber-800 opacity-90 cursor-default'
+: currentTeam.isFrozen
+? 'bg-slate-100 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed'
+: ((currentTeam.powerups?.fifty || 0) > 0 || currentTeam.score >= 100)
+? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white border-amber-400 shadow-amber-500/25 animate-pulse'
+: 'bg-slate-100 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed'
+}`}
+>
+<HelpCircle className="w-4 h-4 text-white" />
+<span>
+{(eliminatedOptions || []).length > 0
+? '🎯 تم حذف خيارين خاطئين بنجاح (50:50)'
+: 'حذف إجابتين (50:50)'}
+</span>
+{(eliminatedOptions || []).length === 0 && (
+(currentTeam.powerups?.fifty || 0) > 0 ? (
+<span className="px-2 py-0.5 rounded-full bg-black/20 text-white text-[10px] font-extrabold mr-1">
+متاح x{currentTeam.powerups.fifty}
+</span>
+) : (
+<span className="px-2 py-0.5 rounded-full bg-black/20 text-amber-100 text-[10px] font-extrabold mr-1">
+100 نقطة
+</span>
+)
+)}
+</button>
+</div>
+)}
+
 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
 {(activeQuestion.options_json || []).map((option, idx) => {
 const letter = OPTION_LETTERS[idx] || '•';
 const isSelected = selectedOption === option;
 const isCorrectAnswer = option === activeQuestion.correct_answer;
+const isEliminated = (eliminatedOptions || []).some(
+eo => String(eo).trim() === String(option).trim()
+);
 const isWrongFromPrevious = reboundState?.wrongOptions?.includes(option);
-const isButtonDisabled = isAnswerRevealed || isWrongFromPrevious;
+const isButtonDisabled = isAnswerRevealed || isWrongFromPrevious || isEliminated;
 
 let style =
 'bg-white border-2 border-slate-200 text-slate-800 hover:border-purple-300 hover:bg-purple-50/40';
 
-if (isWrongFromPrevious) {
+if (isEliminated) {
+style =
+'bg-slate-100/60 border-2 border-dashed border-slate-300/80 text-slate-400/40 opacity-25 line-through cursor-not-allowed pointer-events-none select-none scale-[0.98]';
+} else if (isWrongFromPrevious) {
 style = 'bg-rose-50/70 border-2 border-rose-200 text-rose-300 opacity-40 line-through cursor-not-allowed';
 } else if (isAnswerRevealed) {
 if (isCorrectAnswer) {
@@ -807,14 +865,21 @@ className={`p-4 sm:p-5 rounded-2xl font-bold text-base sm:text-lg text-right tra
 className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-sm ${
 isAnswerRevealed && (isCorrectAnswer || isSelected)
 ? 'bg-white/20 text-white'
+: isEliminated
+? 'bg-slate-200/50 text-slate-400 line-through'
 : 'bg-purple-50 text-purple-700 border border-purple-200'
 }`}
 >
 {letter}
 </span>
-<span>{option}</span>
+<span className={isEliminated ? 'line-through text-slate-400/60' : ''}>{option}</span>
 </div>
 
+{isEliminated && (
+<span className="text-[11px] font-bold text-slate-400 mr-auto bg-slate-200/60 px-2 py-0.5 rounded-md">
+❌ مستبعد (50:50)
+</span>
+)}
 {isAnswerRevealed && isCorrectAnswer && (
 <CheckCircle2 className="w-5 h-5 text-white" />
 )}
