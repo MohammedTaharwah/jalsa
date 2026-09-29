@@ -14,8 +14,7 @@ from app.schemas.promo import (
     PromoCodeCreate,
     PromoCodeOut
 )
-from app.core.deps import get_current_user
-
+from app.core.deps import get_current_user, require_admin
 from app.core.security import decode_access_token
 
 class ConsumeGameRequest(BaseModel):
@@ -32,11 +31,7 @@ def apply_promo_code(
     db: Session = Depends(get_db)
 ):
     """
-    تطبيق برومو كود وإضافة الرصيد مباشرة لحساب المستخدم المسجل:
-    1. التحقق من صلاحية الكود وتفعيله.
-    2. استخراج المستخدم من Bearer Token أو معرف user_id.
-    3. التحقق من عدم استخدام نفس الكود مسبقاً لهذا المستخدم.
-    4. زيادة رصيد ألعاب المستخدم وحفظ التغييرات في PostgreSQL.
+    تطبيق برومو كود وإضافة الرصيد مباشرة لحساب المستخدم المسجل مع التحقق من الهوية والأحقية.
     """
     cleaned_code = payload.code.strip().upper()
 
@@ -56,7 +51,13 @@ def apply_promo_code(
             detail="هذا البرومو كود تم إيقافه وغير مفعّل حالياً"
         )
 
-    # Resolve user
+    if promo.global_limit and promo.current_uses >= promo.global_limit:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="عذراً، وصل هذا البرومو كود للحد الأقصى المسموح به من الاستخدامات."
+        )
+
+    # Strictly resolve authenticated user from Bearer Token
     user = None
     if authorization and authorization.startswith("Bearer "):
         token = authorization.split(" ")[1].strip()
@@ -66,16 +67,6 @@ def apply_promo_code(
                 user = db.query(User).filter(User.id == int(jwt_payload["sub"])).first()
             except (ValueError, TypeError):
                 pass
-
-    if not user and payload.user_id:
-        user = db.query(User).filter(User.id == payload.user_id).first()
-
-    if not user:
-        # Fallback to the latest registered verified user
-        user = db.query(User).filter(User.is_verified == True).order_by(User.id.desc()).first()
-
-    if not user:
-        user = db.query(User).order_by(User.id.desc()).first()
 
     if not user:
         raise HTTPException(
@@ -90,18 +81,6 @@ def apply_promo_code(
     ).first()
 
     if existing_usage:
-        if user.games_balance <= 0:
-            # Grant them the games if their balance was drained or blocked due to previous bug
-            user.games_balance += promo.games_reward
-            db.commit()
-            db.refresh(user)
-            return PromoApplyResponse(
-                success=True,
-                message=f"تم تفعيل الكود بنجاح! لديك الآن {user.games_balance} ألعاب مجانية في رصيدك.",
-                code=promo.code,
-                games_reward=promo.games_reward,
-                new_balance=user.games_balance
-            )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="لقد قمت باستخدام هذا البرومو كود مسبقاً على هذا الحساب!"
@@ -134,12 +113,11 @@ def apply_promo_code(
 @router.post("/consume-game")
 def consume_game_session(
     payload: Optional[ConsumeGameRequest] = None,
-    user_id: Optional[int] = Query(None),
     authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ):
     """
-    استهلاك لعبة واحدة عند بدء جولة، مع التحقق الصارم من توفر الرصيد.
+    استهلاك لعبة واحدة عند بدء جولة، مع التحقق الصارم من هوية المستخدم ومنع استنزاف حسابات الآخرين.
     """
     user = None
     if authorization and authorization.startswith("Bearer "):
@@ -151,19 +129,16 @@ def consume_game_session(
             except (ValueError, TypeError):
                 pass
 
-    if not user:
-        target_user_id = (payload.user_id if payload else None) or user_id
-        if target_user_id:
-            user = db.query(User).filter(User.id == target_user_id).first()
-
-    if not user:
-        # Fallback to latest active user
-        user = db.query(User).order_by(User.id.desc()).first()
+    # Allow Admin to optionally target another user for debugging/support
+    if payload and payload.user_id and user and user.role == "admin":
+        target = db.query(User).filter(User.id == payload.user_id).first()
+        if target:
+            user = target
 
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="المستخدم غير موجود"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="يرجى تسجيل الدخول للتحقق من رصيد الألعاب وبدء الجولة."
         )
 
     if user.games_balance <= 0:
@@ -181,17 +156,21 @@ def consume_game_session(
 # ================= ADMIN ROUTES =================
 
 @router.get("/admin/list", response_model=List[PromoCodeOut])
-def admin_list_promos(db: Session = Depends(get_db)):
-    """جلب جميع البرومو كودز المتاحة مع إحصائيات الاستخدام للوحة التحكم."""
+def admin_list_promos(
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_admin)
+):
+    """جلب جميع البرومو كودز المتاحة مع إحصائيات الاستخدام للوحة التحكم (Admin Only)."""
     return db.query(PromoCode).order_by(PromoCode.id.desc()).all()
 
 
 @router.post("/admin/create", response_model=PromoCodeOut, status_code=status.HTTP_201_CREATED)
 def admin_create_promo(
     promo_in: PromoCodeCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_admin)
 ):
-    """إنشاء برومو كود جديد مع تحديد الحد الأقصى للمستخدمين وعدد الألعاب المجانية."""
+    """إنشاء برومو كود جديد مع تحديد الحد الأقصى للمستخدمين وعدد الألعاب المجانية (Admin Only)."""
     clean_code = promo_in.code.strip().upper()
 
     existing = db.query(PromoCode).filter(
@@ -220,8 +199,12 @@ def admin_create_promo(
 
 
 @router.patch("/admin/{promo_id}/toggle", response_model=PromoCodeOut)
-def admin_toggle_promo(promo_id: int, db: Session = Depends(get_db)):
-    """تفعيل أو تعطيل البرومو كود."""
+def admin_toggle_promo(
+    promo_id: int,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_admin)
+):
+    """تفعيل أو تعطيل البرومو كود (Admin Only)."""
     promo = db.query(PromoCode).filter(PromoCode.id == promo_id).first()
     if not promo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="الكود غير موجود")
@@ -233,8 +216,12 @@ def admin_toggle_promo(promo_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/admin/{promo_id}", status_code=status.HTTP_204_NO_CONTENT)
-def admin_delete_promo(promo_id: int, db: Session = Depends(get_db)):
-    """حذف برومو كود نهائياً."""
+def admin_delete_promo(
+    promo_id: int,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_admin)
+):
+    """حذف برومو كود نهائياً (Admin Only)."""
     promo = db.query(PromoCode).filter(PromoCode.id == promo_id).first()
     if not promo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="الكود غير موجود")

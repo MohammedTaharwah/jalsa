@@ -85,12 +85,16 @@ export const CheckoutModal = ({
     setErrorMsg('');
 
     try {
+      const token = localStorage.getItem('jalsah_access_token');
       const res = await fetch(`${API_BASE}/payment/create-order`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
           package_id: selectedPackage.id,
-          user_id: currentUser?.id || 1
+          user_id: currentUser?.id
         })
       });
 
@@ -110,13 +114,17 @@ export const CheckoutModal = ({
     setErrorMsg('');
 
     try {
+      const token = localStorage.getItem('jalsah_access_token');
       const res = await fetch(`${API_BASE}/payment/capture-order`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
           orderID: data.orderID,
           package_id: selectedPackage.id,
-          user_id: currentUser?.id || 1
+          user_id: currentUser?.id
         })
       });
 

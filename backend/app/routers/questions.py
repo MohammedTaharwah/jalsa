@@ -7,7 +7,7 @@ from app.models.question import Question
 from app.models.category import Category
 from app.models.user import User
 from app.schemas.question import QuestionCreate, QuestionUpdate, QuestionOut
-from app.core.deps import get_current_user
+from app.core.deps import require_admin
 
 router = APIRouter(prefix="/questions", tags=["Questions"])
 
@@ -43,9 +43,9 @@ def get_question(question_id: int, db: Session = Depends(get_db)):
 def create_question(
     question_in: QuestionCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin_user: User = Depends(require_admin)
 ):
-    """Protected route: Create a new question (Requires login)."""
+    """Admin route: Create a new question (Requires admin privileges)."""
     # Verify that the referenced category exists
     cat = db.query(Category).filter(Category.id == question_in.category_id).first()
     if not cat:
@@ -74,9 +74,9 @@ def update_question(
     question_id: int,
     question_in: QuestionUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin_user: User = Depends(require_admin)
 ):
-    """Protected route: Update an existing question (Requires login)."""
+    """Admin route: Update an existing question (Requires admin privileges)."""
     q = db.query(Question).filter(Question.id == question_id).first()
     if not q:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found")
@@ -112,9 +112,9 @@ def update_question(
 def delete_question(
     question_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin_user: User = Depends(require_admin)
 ):
-    """Protected route: Delete a question (Requires login)."""
+    """Admin route: Delete a question (Requires admin privileges)."""
     q = db.query(Question).filter(Question.id == question_id).first()
     if not q:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found")

@@ -37,22 +37,17 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     if existing_user:
         # إذا كان الحساب موجوداً ولكنه غير موثق بعد، نجدد له رمز OTP ونرسله بدلاً من حظره بـ 400
         if not existing_user.is_verified and existing_user.email == user_in.email:
-            import random
+            import secrets
             from datetime import timedelta
-            otp_code = f"{random.randint(100000, 999999)}"
+            otp_code = f"{secrets.randbelow(900000) + 100000}"
             existing_user.otp_code = otp_code
             existing_user.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
-            if user_in.password:
-                existing_user.hashed_password = get_password_hash(user_in.password)
-            if user_in.username:
-                existing_user.username = user_in.username
             db.commit()
             db.refresh(existing_user)
 
-            email_delivered = False
             try:
                 from app.core.email import send_otp_email
-                email_delivered = send_otp_email(existing_user.email, otp_code)
+                send_otp_email(existing_user.email, otp_code)
             except Exception as exc:
                 logger.warning(f"Registration unverified resend notice: {exc}")
 
@@ -61,7 +56,7 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
                 user=existing_user,
                 access_token=None,
                 requires_otp=True,
-                debug_otp=None if email_delivered else otp_code
+                debug_otp=None
             )
 
         if existing_user.username == user_in.username:
@@ -75,9 +70,9 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         )
 
     hashed_pw = get_password_hash(user_in.password)
-    import random
+    import secrets
     from datetime import timedelta
-    otp_code = f"{random.randint(100000, 999999)}"
+    otp_code = f"{secrets.randbelow(900000) + 100000}"
 
     new_user = User(
         username=user_in.username,
@@ -94,10 +89,9 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     db.refresh(new_user)
 
     # Dispatch OTP via Brevo / Resend HTTP API
-    email_delivered = False
     try:
         from app.core.email import send_otp_email
-        email_delivered = send_otp_email(new_user.email, otp_code)
+        send_otp_email(new_user.email, otp_code)
     except Exception as exc:
         logger.warning(f"Registration email delivery notice: {exc}")
 
@@ -106,7 +100,7 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         user=new_user,
         access_token=None,
         requires_otp=True,
-        debug_otp=None if email_delivered else otp_code
+        debug_otp=None
     )
 
 
@@ -175,23 +169,23 @@ def resend_otp(resend_data: OTPResendRequest, db: Session = Depends(get_db)):
         return {"message": "الحساب مفعل بالفعل ولا يحتاج لرمز تحقق.", "is_verified": True}
 
     # Generate new OTP
-    import random
+    import secrets
     from datetime import timedelta
-    otp_code = f"{random.randint(100000, 999999)}"
+    otp_code = f"{secrets.randbelow(900000) + 100000}"
     user.otp_code = otp_code
     user.otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
     db.commit()
 
-    email_delivered = False
     try:
-        email_delivered = send_otp_email(user.email, otp_code)
+        from app.core.email import send_otp_email
+        send_otp_email(user.email, otp_code)
     except Exception as exc:
         logger.warning(f"Notice during send_otp_email: {exc}")
 
     return {
         "success": True,
         "message": "تم إرسال رمز تحقق جديد إلى بريدك الإلكتروني.",
-        "debug_otp": None if email_delivered else otp_code
+        "debug_otp": None
     }
 
 

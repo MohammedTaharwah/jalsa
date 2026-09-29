@@ -68,3 +68,24 @@ def verify_n8n_webhook_key(
             detail="Forbidden: Invalid or missing X-N8N-API-KEY header."
         )
     return x_n8n_api_key
+
+
+def get_optional_current_user(
+    db: Session = Depends(get_db),
+    authorization: Optional[str] = Header(None)
+) -> Optional[User]:
+    """Optionally extract the current user if a valid Bearer token is provided."""
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    token = authorization.split(" ", 1)[1].strip()
+    payload = decode_access_token(token)
+    if not payload:
+        return None
+    user_id_str = payload.get("sub")
+    if not user_id_str:
+        return None
+    try:
+        user_id = int(user_id_str)
+        return db.query(User).filter(User.id == user_id).first()
+    except Exception:
+        return None

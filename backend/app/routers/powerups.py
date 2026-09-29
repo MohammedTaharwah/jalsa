@@ -6,7 +6,7 @@ from app.database import get_db
 from app.models.powerup import PowerUp
 from app.models.user import User
 from app.schemas.powerup import PowerUpCreate, PowerUpUpdate, PowerUpOut
-from app.core.deps import get_current_user
+from app.core.deps import require_admin
 
 router = APIRouter(prefix="/powerups", tags=["PowerUps"])
 
@@ -34,9 +34,9 @@ def get_powerup(powerup_id: int, db: Session = Depends(get_db)):
 def create_powerup(
     powerup_in: PowerUpCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin_user: User = Depends(require_admin)
 ):
-    """Protected route: Create a new powerup (Requires login)."""
+    """Admin route: Create a new powerup (Requires admin privileges)."""
     existing = db.query(PowerUp).filter(PowerUp.name == powerup_in.name).first()
     if existing:
         raise HTTPException(
@@ -60,9 +60,9 @@ def update_powerup(
     powerup_id: int,
     powerup_in: PowerUpUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin_user: User = Depends(require_admin)
 ):
-    """Protected route: Update an existing powerup (Requires login)."""
+    """Admin route: Update an existing powerup (Requires admin privileges)."""
     pup = db.query(PowerUp).filter(PowerUp.id == powerup_id).first()
     if not pup:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PowerUp not found")
@@ -90,9 +90,9 @@ def update_powerup(
 def delete_powerup(
     powerup_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    admin_user: User = Depends(require_admin)
 ):
-    """Protected route: Delete a powerup (Requires login)."""
+    """Admin route: Delete a powerup (Requires admin privileges)."""
     pup = db.query(PowerUp).filter(PowerUp.id == powerup_id).first()
     if not pup:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PowerUp not found")

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
 from app.config import settings
+from app.core.deps import get_optional_current_user
 
 logger = logging.getLogger("qna_backend.payment")
 router = APIRouter(prefix="/payment", tags=["PayPal Payment Gateway"])
@@ -151,7 +152,8 @@ async def create_paypal_order(payload: CreateOrderRequest):
 @router.post("/capture-order")
 async def capture_paypal_order(
     payload: CaptureOrderRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
 ):
     """
     تأكيد الدفع (Capture Order)، التحقق من اكتمال العملية، ثم إضافة الجلسات لرصيد المستخدم في PostgreSQL.
@@ -196,19 +198,20 @@ async def capture_paypal_order(
     if not is_completed:
         raise HTTPException(status_code=400, detail="لم يتم استلام تأكيد الدفع بنجاح")
 
-    # Resolve user
-    user = None
-    if payload.user_id:
+    # Resolve target user securely (prioritize authenticated user from Bearer token)
+    user = current_user
+    if not user and payload.user_id:
         user = db.query(User).filter(User.id == payload.user_id).first()
     if not user:
-        user = db.query(User).order_by(User.id.asc()).first()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="لم يتم العثور على حساب مستخدم لربط العملية به. يرجى تسجيل الدخول أولاً."
+        )
 
-    new_balance = package["games_count"]
-    if user:
-        user.games_balance += package["games_count"]
-        db.commit()
-        db.refresh(user)
-        new_balance = user.games_balance
+    user.games_balance += package["games_count"]
+    db.commit()
+    db.refresh(user)
+    new_balance = user.games_balance
 
     logger.info(f"Payment captured successfully for {package['name']}. User games balance: {new_balance}")
 
