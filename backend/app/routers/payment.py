@@ -184,7 +184,13 @@ async def capture_paypal_order(
                     logger.error(f"PayPal capture failed: {resp.text}")
                     raise HTTPException(status_code=400, detail="فشل في إتمام وتأكيد الدفعة من PayPal")
     else:
-        # Sandbox simulated success
+        # Block simulated orders in production
+        if settings.PAYPAL_ENVIRONMENT.lower() == "production":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="غير مسموح بطلبات المحاكاة أو التجربة في بيئة الإنتاج المباشرة (Production)"
+            )
+        # Sandbox simulated success (only in development/sandbox mode)
         is_completed = True
 
     if not is_completed:
