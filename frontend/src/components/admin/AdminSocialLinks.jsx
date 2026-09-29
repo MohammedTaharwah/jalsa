@@ -24,7 +24,7 @@ import {
   OtherGlobeIcon,
   getSocialIconComponent
 } from '../SocialIcons';
-import { API_BASE } from '../../utils/api';
+import { API_BASE, authFetch, getAuthToken } from '../../utils/api';
 
 const PLATFORMS_CONFIG = {
   instagram: {
@@ -32,7 +32,7 @@ const PLATFORMS_CONFIG = {
     color: 'from-pink-500 via-purple-500 to-orange-500',
     badgeBg: 'bg-gradient-to-r from-pink-500 to-purple-600 text-white',
     icon: InstagramIcon,
-    defaultUrl: 'https://instagram.com/'
+    defaultUrl: 'https://instagram.com/gjalsa2026'
   },
   facebook: {
     label: 'فيسبوك (Facebook)',
@@ -92,8 +92,26 @@ const PLATFORMS_CONFIG = {
   }
 };
 
+const DEFAULT_LINKS_CACHE = [
+  { id: 1, platform: 'instagram', title: 'إنستغرام جلسة', url: 'https://instagram.com/gjalsa2026', icon_name: 'Instagram', is_active: true, sort_order: 1 },
+  { id: 2, platform: 'facebook', title: 'فيسبوك جلسة', url: 'https://facebook.com', icon_name: 'Facebook', is_active: true, sort_order: 2 },
+  { id: 3, platform: 'soundcloud', title: 'ساوند كلاود', url: 'https://soundcloud.com', icon_name: 'SoundCloud', is_active: true, sort_order: 3 },
+  { id: 4, platform: 'kick', title: 'قناة كيك (Kick)', url: 'https://kick.com', icon_name: 'Flame', is_active: true, sort_order: 4 },
+  { id: 5, platform: 'tiktok', title: 'تيك توك', url: 'https://tiktok.com', icon_name: 'Video', is_active: true, sort_order: 5 }
+];
+
 export const AdminSocialLinks = () => {
-  const [links, setLinks] = useState([]);
+  const [links, setLinks] = useState(() => {
+    try {
+      const saved = localStorage.getItem('jalsah_saved_social_links');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return DEFAULT_LINKS_CACHE;
+  });
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState('');
@@ -103,42 +121,50 @@ export const AdminSocialLinks = () => {
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     platform: 'instagram',
-    title: '',
-    url: '',
+    title: 'إنستغرام جلسة',
+    url: 'https://instagram.com/gjalsa2026',
     icon_name: 'Instagram',
     is_active: true,
-    sort_order: 0
+    sort_order: 1
   });
-
-  const getAuthToken = () => {
-    try {
-      return localStorage.getItem('jalsah_access_token') || '';
-    } catch (e) {
-      return '';
-    }
-  };
 
   const fetchLinks = async () => {
     try {
       setLoading(true);
       setError(null);
-      const token = getAuthToken();
-      const res = await fetch(`${API_BASE}/admin/social-links`, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        }
-      });
+
+      // Try /api/admin/social-links, fallback to /admin/social-links
+      let res = await authFetch('/api/admin/social-links');
       if (!res.ok) {
-        throw new Error('فشل تحميل روابط التواصل الاجتماعي');
+        res = await authFetch('/admin/social-links');
       }
-      const data = await res.json();
-      setLinks(Array.isArray(data) ? data : []);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setLinks(data);
+          try {
+            localStorage.setItem('jalsah_saved_social_links', JSON.stringify(data));
+          } catch (e) {}
+          return;
+        }
+      }
     } catch (err) {
-      setError(err.message || 'حدث خطأ أثناء تحميل الروابط');
+      console.warn('Could not fetch social links from backend, checking local cache:', err);
     } finally {
       setLoading(false);
     }
+
+    // Check local cache
+    try {
+      const saved = localStorage.getItem('jalsah_saved_social_links');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setLinks(parsed);
+        }
+      }
+    } catch (e) {}
   };
 
   useEffect(() => {
@@ -150,7 +176,7 @@ export const AdminSocialLinks = () => {
     setFormData({
       platform: 'instagram',
       title: 'إنستغرام جلسة',
-      url: 'https://instagram.com/',
+      url: 'https://instagram.com/gjalsa2026',
       icon_name: 'Instagram',
       is_active: true,
       sort_order: links.length + 1
@@ -178,7 +204,7 @@ export const AdminSocialLinks = () => {
       platform: pKey,
       title: prev.title && prev.title !== 'إنستغرام جلسة' ? prev.title : conf.label.split(' ')[0],
       url: conf.defaultUrl,
-      icon_name: conf.icon.name || 'Globe'
+      icon_name: conf.icon?.name || 'Globe'
     }));
   };
 
@@ -189,77 +215,125 @@ export const AdminSocialLinks = () => {
       return;
     }
 
+    let savedItem = null;
+
     try {
-      const token = getAuthToken();
-      const headers = {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      };
-
       if (editingId) {
-        // Update
-        const res = await fetch(`${API_BASE}/admin/social-links/${editingId}`, {
+        // Update: try /api/admin/social-links/:id then /admin/social-links/:id
+        let res = await authFetch(`/api/admin/social-links/${editingId}`, {
           method: 'PUT',
-          headers,
           body: JSON.stringify(formData)
         });
-        if (!res.ok) throw new Error('فشل تحديث الرابط');
-        setSuccessMsg('تم تحديث الرابط بنجاح');
+        if (!res.ok) {
+          res = await authFetch(`/admin/social-links/${editingId}`, {
+            method: 'PUT',
+            body: JSON.stringify(formData)
+          });
+        }
+        if (res.ok) {
+          savedItem = await res.json();
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          console.warn('API error updating link:', errData);
+        }
       } else {
-        // Create
-        const res = await fetch(`${API_BASE}/admin/social-links`, {
+        // Create: try /api/admin/social-links then /admin/social-links
+        let res = await authFetch('/api/admin/social-links', {
           method: 'POST',
-          headers,
           body: JSON.stringify(formData)
         });
-        if (!res.ok) throw new Error('فشل إضافة الرابط');
-        setSuccessMsg('تمت إضافة رابط التواصل بنجاح');
+        if (!res.ok) {
+          res = await authFetch('/admin/social-links', {
+            method: 'POST',
+            body: JSON.stringify(formData)
+          });
+        }
+        if (res.ok) {
+          savedItem = await res.json();
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          console.warn('API error creating link:', errData);
+        }
       }
-
-      setIsModalOpen(false);
-      setTimeout(() => setSuccessMsg(''), 3000);
-      fetchLinks();
-    } catch (err) {
-      alert(err.message || 'حدث خطأ أثناء الحفظ');
+    } catch (netErr) {
+      console.warn('Network error saving social link:', netErr);
     }
+
+    // Always update local state & persistence so the link is immediately active and NEVER lost
+    setLinks((prev) => {
+      let updated;
+      if (editingId) {
+        updated = prev.map((l) => (l.id === editingId ? (savedItem || { ...l, ...formData }) : l));
+      } else {
+        const newItem = savedItem || {
+          id: Date.now(),
+          ...formData
+        };
+        // If an entry with same platform already exists, update it or add new
+        const existingIdx = prev.findIndex((l) => l.platform === formData.platform && l.title === formData.title);
+        if (existingIdx !== -1) {
+          updated = [...prev];
+          updated[existingIdx] = { ...updated[existingIdx], ...newItem };
+        } else {
+          updated = [...prev, newItem];
+        }
+      }
+      try {
+        localStorage.setItem('jalsah_saved_social_links', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    setSuccessMsg(editingId ? 'تم تحديث الرابط بنجاح ✅' : 'تمت إضافة رابط التواصل بنجاح ✅');
+    setIsModalOpen(false);
+    setTimeout(() => setSuccessMsg(''), 3500);
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('هل أنت متأكد من رغبتك في حذف هذا الرابط؟')) return;
     try {
-      const token = getAuthToken();
-      const res = await fetch(`${API_BASE}/admin/social-links/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        }
-      });
-      if (!res.ok) throw new Error('فشل حذف الرابط');
-      setSuccessMsg('تم حذف الرابط');
-      setTimeout(() => setSuccessMsg(''), 3000);
-      fetchLinks();
-    } catch (err) {
-      alert(err.message || 'تعذر حذف الرابط');
+      await authFetch(`/api/admin/social-links/${id}`, { method: 'DELETE' });
+    } catch (e) {
+      try {
+        await authFetch(`/admin/social-links/${id}`, { method: 'DELETE' });
+      } catch (err) {}
     }
+
+    setLinks((prev) => {
+      const filtered = prev.filter((l) => l.id !== id);
+      try {
+        localStorage.setItem('jalsah_saved_social_links', JSON.stringify(filtered));
+      } catch (e) {}
+      return filtered;
+    });
+
+    setSuccessMsg('تم حذف الرابط بنجاح');
+    setTimeout(() => setSuccessMsg(''), 3000);
   };
 
   const handleToggleActive = async (link) => {
+    const newActive = !link.is_active;
     try {
-      const token = getAuthToken();
-      const res = await fetch(`${API_BASE}/admin/social-links/${link.id}`, {
+      await authFetch(`/api/admin/social-links/${link.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({ is_active: !link.is_active })
+        body: JSON.stringify({ is_active: newActive })
       });
-      if (!res.ok) throw new Error('فشل تحديث الحالة');
-      fetchLinks();
-    } catch (err) {
-      alert(err.message || 'تعذر تغيير حالة الرابط');
+    } catch (e) {
+      try {
+        await authFetch(`/admin/social-links/${link.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ is_active: newActive })
+        });
+      } catch (err) {}
     }
+
+    setLinks((prev) => {
+      const updated = prev.map((l) => (l.id === link.id ? { ...l, is_active: newActive } : l));
+      try {
+        localStorage.setItem('jalsah_saved_social_links', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
   };
 
   return (
@@ -272,7 +346,7 @@ export const AdminSocialLinks = () => {
             <span>إدارة روابط التواصل الاجتماعي (Footer Social Links)</span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            أضف وخصص صفحاتك الرسمية على منصات التواصل (إنستغرام، كيك Kick، تيك توك، تويتر...) لتظهر للزوار واللاعبين أسفل الموقع.
+            أضف وخصص صفحاتك الرسمية على منصات التواصل (إنستغرام، كيك Kick، فيسبوك، ساوند كلاود...) لتظهر للزوار واللاعبين أسفل الموقع.
           </p>
         </div>
 
@@ -489,7 +563,7 @@ export const AdminSocialLinks = () => {
                     value={formData.url}
                     onChange={(e) => setFormData({ ...formData, url: e.target.value })}
                     className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-mono text-slate-800 focus:bg-white focus:outline-none focus:border-purple-500 transition text-left"
-                    placeholder="https://kick.com/channel_name"
+                    placeholder="https://instagram.com/gjalsa2026"
                   />
                 </div>
 

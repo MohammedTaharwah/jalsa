@@ -52,7 +52,7 @@ const PLATFORM_STYLES = {
 };
 
 const DEFAULT_SOCIAL_LINKS = [
-  { id: 'def-1', platform: 'instagram', title: 'إنستغرام', url: 'https://instagram.com' },
+  { id: 'def-1', platform: 'instagram', title: 'إنستغرام', url: 'https://instagram.com/gjalsa2026' },
   { id: 'def-2', platform: 'facebook', title: 'فيسبوك', url: 'https://facebook.com' },
   { id: 'def-3', platform: 'soundcloud', title: 'ساوند كلاود', url: 'https://soundcloud.com' },
   { id: 'def-4', platform: 'kick', title: 'قناة كيك (Kick)', url: 'https://kick.com' },
@@ -60,21 +60,36 @@ const DEFAULT_SOCIAL_LINKS = [
 ];
 
 export const SocialFooter = ({ isDark = false }) => {
-  const [links, setLinks] = useState(DEFAULT_SOCIAL_LINKS);
+  const [links, setLinks] = useState(() => {
+    try {
+      const saved = localStorage.getItem('jalsah_saved_social_links');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return DEFAULT_SOCIAL_LINKS;
+  });
 
   useEffect(() => {
     let isMounted = true;
     const loadLinks = async () => {
       try {
-        const res = await fetch(`${API_BASE}/social-links`);
+        let res = await fetch(`${API_BASE}/api/social-links`);
+        if (!res.ok) {
+          res = await fetch(`${API_BASE}/social-links`);
+        }
         if (res.ok) {
           const data = await res.json();
           if (isMounted && Array.isArray(data) && data.length > 0) {
             setLinks(data);
+            try {
+              localStorage.setItem('jalsah_saved_social_links', JSON.stringify(data));
+            } catch (e) {}
           }
         }
       } catch (e) {
-        // Fallback to default links
+        // Fallback to saved or default links
       }
     };
     loadLinks();

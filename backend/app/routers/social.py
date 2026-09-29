@@ -26,7 +26,7 @@ def seed_default_social_links_if_needed(db: Session):
             {
                 "platform": "instagram",
                 "title": "إنستغرام جلسة",
-                "url": "https://instagram.com",
+                "url": "https://instagram.com/gjalsa2026",
                 "icon_name": "Instagram",
                 "is_active": True,
                 "sort_order": 1
@@ -88,6 +88,7 @@ def seed_default_social_links_if_needed(db: Session):
 # =====================================================================
 
 @router.get("/api/social-links", response_model=List[SocialLinkOut])
+@router.get("/social-links", response_model=List[SocialLinkOut])
 def get_public_social_links(db: Session = Depends(get_db)):
     """Fetch all active social media links for footer display."""
     seed_default_social_links_if_needed(db)
@@ -105,6 +106,7 @@ def get_public_social_links(db: Session = Depends(get_db)):
 # =====================================================================
 
 @router.get("/api/admin/social-links", response_model=List[SocialLinkOut])
+@router.get("/admin/social-links", response_model=List[SocialLinkOut])
 def admin_get_all_social_links(
     db: Session = Depends(get_db),
     current_admin: User = Depends(require_admin)
@@ -116,6 +118,7 @@ def admin_get_all_social_links(
 
 
 @router.post("/api/admin/social-links", response_model=SocialLinkOut, status_code=status.HTTP_201_CREATED)
+@router.post("/admin/social-links", response_model=SocialLinkOut, status_code=status.HTTP_201_CREATED)
 def admin_create_social_link(
     payload: SocialLinkCreate,
     db: Session = Depends(get_db),
@@ -137,6 +140,7 @@ def admin_create_social_link(
 
 
 @router.put("/api/admin/social-links/{link_id}", response_model=SocialLinkOut)
+@router.put("/admin/social-links/{link_id}", response_model=SocialLinkOut)
 def admin_update_social_link(
     link_id: int,
     payload: SocialLinkUpdate,
@@ -167,6 +171,7 @@ def admin_update_social_link(
 
 
 @router.delete("/api/admin/social-links/{link_id}", status_code=status.HTTP_200_OK)
+@router.delete("/admin/social-links/{link_id}", status_code=status.HTTP_200_OK)
 def admin_delete_social_link(
     link_id: int,
     db: Session = Depends(get_db),
