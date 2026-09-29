@@ -9,6 +9,16 @@ const PLATFORM_STYLES = {
     bgDark: 'hover:bg-gradient-to-r hover:from-pink-500 hover:to-purple-600 hover:text-white hover:border-pink-500',
     accentText: 'text-pink-600 dark:text-pink-400'
   },
+  facebook: {
+    bgLight: 'hover:bg-blue-600 hover:text-white hover:border-blue-600',
+    bgDark: 'hover:bg-blue-600 hover:text-white hover:border-blue-600',
+    accentText: 'text-blue-600 dark:text-blue-400'
+  },
+  soundcloud: {
+    bgLight: 'hover:bg-orange-500 hover:text-white hover:border-orange-500',
+    bgDark: 'hover:bg-orange-500 hover:text-white hover:border-orange-500',
+    accentText: 'text-orange-500 dark:text-orange-400'
+  },
   kick: {
     bgLight: 'hover:bg-emerald-500 hover:text-slate-950 hover:border-emerald-500',
     bgDark: 'hover:bg-emerald-400 hover:text-slate-950 hover:border-emerald-400',
@@ -41,8 +51,16 @@ const PLATFORM_STYLES = {
   }
 };
 
+const DEFAULT_SOCIAL_LINKS = [
+  { id: 'def-1', platform: 'instagram', title: 'إنستغرام', url: 'https://instagram.com' },
+  { id: 'def-2', platform: 'facebook', title: 'فيسبوك', url: 'https://facebook.com' },
+  { id: 'def-3', platform: 'soundcloud', title: 'ساوند كلاود', url: 'https://soundcloud.com' },
+  { id: 'def-4', platform: 'kick', title: 'قناة كيك (Kick)', url: 'https://kick.com' },
+  { id: 'def-5', platform: 'tiktok', title: 'تيك توك', url: 'https://tiktok.com' }
+];
+
 export const SocialFooter = ({ isDark = false }) => {
-  const [links, setLinks] = useState([]);
+  const [links, setLinks] = useState(DEFAULT_SOCIAL_LINKS);
 
   useEffect(() => {
     let isMounted = true;
@@ -51,12 +69,12 @@ export const SocialFooter = ({ isDark = false }) => {
         const res = await fetch(`${API_BASE}/social-links`);
         if (res.ok) {
           const data = await res.json();
-          if (isMounted && Array.isArray(data)) {
+          if (isMounted && Array.isArray(data) && data.length > 0) {
             setLinks(data);
           }
         }
       } catch (e) {
-        // Fallback or silent fail
+        // Fallback to default links
       }
     };
     loadLinks();
@@ -64,10 +82,6 @@ export const SocialFooter = ({ isDark = false }) => {
       isMounted = false;
     };
   }, []);
-
-  if (!links || links.length === 0) {
-    return null;
-  }
 
   return (
     <footer

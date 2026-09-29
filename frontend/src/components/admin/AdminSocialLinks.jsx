@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import {
   InstagramIcon,
+  FacebookIcon,
+  SoundCloudIcon,
   KickIcon,
   TikTokIcon,
   TwitterXIcon,
@@ -31,6 +33,20 @@ const PLATFORMS_CONFIG = {
     badgeBg: 'bg-gradient-to-r from-pink-500 to-purple-600 text-white',
     icon: InstagramIcon,
     defaultUrl: 'https://instagram.com/'
+  },
+  facebook: {
+    label: 'فيسبوك (Facebook)',
+    color: 'from-blue-600 to-indigo-700',
+    badgeBg: 'bg-blue-600 text-white font-bold',
+    icon: FacebookIcon,
+    defaultUrl: 'https://facebook.com/'
+  },
+  soundcloud: {
+    label: 'ساوند كلاود (SoundCloud)',
+    color: 'from-orange-500 to-amber-600',
+    badgeBg: 'bg-orange-500 text-white font-bold',
+    icon: SoundCloudIcon,
+    defaultUrl: 'https://soundcloud.com/'
   },
   kick: {
     label: 'كيك (Kick Streaming)',

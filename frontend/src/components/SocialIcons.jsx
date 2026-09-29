@@ -9,6 +9,18 @@ export const InstagramIcon = ({ className = "w-4 h-4" }) => (
   </svg>
 );
 
+export const FacebookIcon = ({ className = "w-4 h-4" }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+  </svg>
+);
+
+export const SoundCloudIcon = ({ className = "w-4 h-4" }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M11.56 8.87v9.75h1.27v-9.75h-1.27zm-2.54 2.12v7.63h1.27v-7.63H9.02zm-2.54 2.54v5.09h1.27v-5.09H6.48zm-2.54 1.7v3.39h1.27v-3.39H3.94zm-2.54 1.27v2.12h1.27v-2.12H1.4zm12.7-8.9v10.17c.43.08.88.13 1.34.13 2.92 0 5.29-2.37 5.29-5.29 0-2.8-2.18-5.1-4.94-5.27-.47-2.16-2.4-3.79-4.7-3.79-.8 0-1.56.2-2.22.56v3.49h5.23z"/>
+  </svg>
+);
+
 export const KickIcon = ({ className = "w-4 h-4" }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
     {/* Kick's iconic block-K logo */}
@@ -45,6 +57,8 @@ export const OtherGlobeIcon = ({ className = "w-4 h-4" }) => (
 export const getSocialIconComponent = (platform) => {
   switch (platform?.toLowerCase()) {
     case 'instagram': return InstagramIcon;
+    case 'facebook': return FacebookIcon;
+    case 'soundcloud': return SoundCloudIcon;
     case 'kick': return KickIcon;
     case 'tiktok': return TikTokIcon;
     case 'twitter':

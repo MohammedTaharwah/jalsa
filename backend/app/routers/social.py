@@ -32,12 +32,28 @@ def seed_default_social_links_if_needed(db: Session):
                 "sort_order": 1
             },
             {
+                "platform": "facebook",
+                "title": "فيسبوك جلسة",
+                "url": "https://facebook.com",
+                "icon_name": "Facebook",
+                "is_active": True,
+                "sort_order": 2
+            },
+            {
+                "platform": "soundcloud",
+                "title": "ساوند كلاود",
+                "url": "https://soundcloud.com",
+                "icon_name": "SoundCloud",
+                "is_active": True,
+                "sort_order": 3
+            },
+            {
                 "platform": "kick",
                 "title": "قناة كيك (Kick)",
                 "url": "https://kick.com",
                 "icon_name": "Flame",
                 "is_active": True,
-                "sort_order": 2
+                "sort_order": 4
             },
             {
                 "platform": "tiktok",
@@ -45,7 +61,7 @@ def seed_default_social_links_if_needed(db: Session):
                 "url": "https://tiktok.com",
                 "icon_name": "Video",
                 "is_active": True,
-                "sort_order": 3
+                "sort_order": 5
             },
             {
                 "platform": "twitter",
@@ -53,7 +69,7 @@ def seed_default_social_links_if_needed(db: Session):
                 "url": "https://x.com",
                 "icon_name": "Twitter",
                 "is_active": True,
-                "sort_order": 4
+                "sort_order": 6
             }
         ]
 
