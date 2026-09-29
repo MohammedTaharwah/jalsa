@@ -23,6 +23,7 @@ X
 } from 'lucide-react';
 import { useGameStore } from '../store/useGameStore';
 import { FortuneWheelModal } from './FortuneWheelModal';
+import { SocialFooter } from './SocialFooter';
 import { CATEGORIES_DATA, POWERUPS_CATALOG } from '../data/categoriesData';
 
 const OPTION_LETTERS = ['أ', 'ب', 'ج', 'د'];
@@ -50,6 +51,7 @@ reboundState,
 skipRebound,
 isTimerEnabled,
 toggleTimer,
+adjustTeamScore,
 gameBanner,
 clearBanner,
 selectTile,
@@ -223,8 +225,34 @@ idx === 0 ? 'bg-purple-600' : 'bg-orange-500'
 <div className="text-[11px] font-bold text-slate-700 truncate max-w-[100px] leading-tight">
 {team.name}
 </div>
+<div className="flex items-center gap-1.5 mt-0.5">
 <div className="text-xs sm:text-sm font-black text-slate-900 leading-none">
 {team.score} <span className="text-[9px] text-purple-600 font-bold">ن</span>
+</div>
+<div className="inline-flex items-center gap-0.5 bg-slate-100/90 rounded-md p-0.5 border border-slate-200/80">
+<button
+type="button"
+onClick={(e) => {
+  e.stopPropagation();
+  adjustTeamScore(team.id, 200);
+}}
+className="px-1 py-0.5 rounded bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] font-black leading-none shadow-2xs active:scale-95 transition cursor-pointer"
+title="إضافة 200 نقطة (+200)"
+>
++200
+</button>
+<button
+type="button"
+onClick={(e) => {
+  e.stopPropagation();
+  adjustTeamScore(team.id, -200);
+}}
+className="px-1 py-0.5 rounded bg-rose-500 hover:bg-rose-600 text-white text-[9px] font-black leading-none shadow-2xs active:scale-95 transition cursor-pointer"
+title="خصم 200 نقطة (-200)"
+>
+-200
+</button>
+</div>
 </div>
 </div>
 
@@ -857,6 +885,11 @@ className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 h
 
 {/* ================= FORTUNE WHEEL MODAL (4 OUTCOMES) ================= */}
 <FortuneWheelModal />
+
+{/* ================= SOCIAL MEDIA FOOTER ================= */}
+<div className="w-full mt-4">
+  <SocialFooter isDark={false} />
+</div>
 </div>
 );
 };

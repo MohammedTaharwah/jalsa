@@ -93,7 +93,13 @@ export const useGameStore = create((set, get) => {
   return {
     // ================= STATE =================
     gameStage: savedActiveGame ? savedActiveGame.gameStage : 'setup', // 'setup' | 'playing' | 'game_over'
-    gameMode: 'trivia', // 'trivia' | 'spy'
+    gameMode: (() => {
+      try {
+        const saved = localStorage.getItem('jalsah_game_mode');
+        if (saved === 'spy' || saved === 'trivia') return saved;
+      } catch (e) {}
+      return 'trivia';
+    })(),
     teams: savedActiveGame ? savedActiveGame.teams : [
       {
         id: 1,
@@ -241,7 +247,24 @@ availableGames: user?.games_balance !== undefined ? user.games_balance : 1
 },
 
 setGameMode: (gameMode) => {
+  try {
+    localStorage.setItem('jalsah_game_mode', gameMode);
+  } catch (e) {}
   set({ gameMode });
+},
+
+adjustTeamScore: (teamId, delta) => {
+  set((state) => {
+    const updatedTeams = state.teams.map((t) => {
+      if (t.id === teamId) {
+        const newScore = (t.score || 0) + delta;
+        return { ...t, score: newScore };
+      }
+      return t;
+    });
+    return { teams: updatedTeams };
+  });
+  persistActiveGame(get());
 },
 
 setCurrentRoute: (route) => {

@@ -45,6 +45,7 @@ import { OTPScreen } from './OTPScreen';
 import { API_BASE } from '../utils/api';
 import { CheckoutModal } from './CheckoutModal';
 import { AuthModal } from './AuthModal';
+import { SocialFooter } from './SocialFooter';
 import logo from '../assets/logo.png';
 
 // Palette definitions for Teams
@@ -1459,6 +1460,11 @@ onPaymentSuccess={(newBal) => {
 setAvailableGames(newBal);
 }}
 />
+
+{/* ================= SOCIAL MEDIA FOOTER ================= */}
+<div className="w-full mt-10">
+  <SocialFooter isDark={false} />
+</div>
 </div>
 );
 };

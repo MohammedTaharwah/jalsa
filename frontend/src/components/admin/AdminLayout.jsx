@@ -11,7 +11,8 @@ import {
   ChevronLeft,
   Menu,
   X,
-  Sparkles
+  Sparkles,
+  Share2
 } from 'lucide-react';
 import logo from '../../assets/logo.png';
 import { AdminOverview } from './AdminOverview';
@@ -21,6 +22,7 @@ import { AdminAIControlRoom } from './AdminAIControlRoom';
 import { AdminPackagesPromos } from './AdminPackagesPromos';
 import { AdminGameEconomy } from './AdminGameEconomy';
 import { AdminSpyManager } from './AdminSpyManager';
+import { AdminSocialLinks } from './AdminSocialLinks';
 
 export const AdminLayout = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -70,6 +72,13 @@ export const AdminLayout = ({ onLogout }) => {
       label: 'اقتصاد اللعبة',
       icon: Coins,
       desc: 'تكلفة الأسلحة التكتيكية'
+    },
+    {
+      id: 'social-links',
+      label: 'صفحات التواصل',
+      icon: Share2,
+      desc: 'حسابات إنستغرام، كيك وروابط الفوتر',
+      badge: 'جديد'
     }
   ];
 
@@ -83,6 +92,8 @@ export const AdminLayout = ({ onLogout }) => {
         return <AdminCategoriesQuestions />;
       case 'spy-game':
         return <AdminSpyManager />;
+      case 'social-links':
+        return <AdminSocialLinks />;
       case 'ai-control':
         return <AdminAIControlRoom />;
       case 'packages':

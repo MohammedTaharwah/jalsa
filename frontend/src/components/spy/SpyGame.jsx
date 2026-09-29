@@ -26,6 +26,7 @@ import {
   Landmark
 } from 'lucide-react';
 import logo from '../../assets/logo.png';
+import { SocialFooter } from '../SocialFooter';
 
 // Fallback default categories if backend is loading or offline
 const DEFAULT_FALLBACK_CATEGORIES = [
@@ -118,47 +119,93 @@ const DEFAULT_FALLBACK_CATEGORIES = [
   }
 ];
 
-const DEFAULT_PLAYER_NAMES = [
-  'محمد',
-  'أحمد',
-  'عمر',
-  'خالد',
-  'سارة',
-  'فاطمة',
-  'يوسف',
-  'علي',
-  'نور',
-  'حمزة'
+const SPY_GAME_SESSION_KEY = 'jalsah_spy_game_session';
+
+const loadSavedSpySession = () => {
+  try {
+    const raw = localStorage.getItem(SPY_GAME_SESSION_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+};
+
+const SUGGESTED_NAMES = [
+  'محمد', 'أحمد', 'عمر', 'خالد', 'سارة', 'فاطمة', 'يوسف', 'علي', 'نور', 'حمزة', 'مريم', 'زين', 'ليان', 'كريم'
 ];
 
 export const SpyGame = ({ onExit }) => {
+  const savedSession = loadSavedSpySession();
+
   // Phases: 'setup' -> 'categories' -> 'reveal' -> 'discussion' -> 'vote' -> 'result'
-  const [phase, setPhase] = useState('setup');
+  const [phase, setPhase] = useState(() => savedSession?.phase || 'setup');
 
   // Players config
-  const [playerCount, setPlayerCount] = useState(4);
-  const [playerNames, setPlayerNames] = useState(DEFAULT_PLAYER_NAMES.slice(0, 4));
-  const [spyCount, setSpyCount] = useState(1);
-  const [discussionDuration, setDiscussionDuration] = useState(120); // 2 minutes in seconds (0 = unlimited)
+  const [playerCount, setPlayerCount] = useState(() => savedSession?.playerCount || 4);
+  const [playerNames, setPlayerNames] = useState(() => {
+    if (savedSession?.playerNames && Array.isArray(savedSession.playerNames)) {
+      return savedSession.playerNames;
+    }
+    return ['', '', '', ''];
+  });
+  const [spyCount, setSpyCount] = useState(() => savedSession?.spyCount || 1);
+  const [discussionDuration, setDiscussionDuration] = useState(() => savedSession?.discussionDuration ?? 120);
 
   // Categories
   const [allCategories, setAllCategories] = useState([]);
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState(() => savedSession?.selectedCategoryIds || []);
   const [loadingCategories, setLoadingCategories] = useState(true);
 
   // Active round runtime state
-  const [activeCategory, setActiveCategory] = useState(null);
-  const [secretWord, setSecretWord] = useState('');
-  const [assignedRoles, setAssignedRoles] = useState([]); // [{ name, isSpy, hasRevealed }]
-  const [currentRevealIndex, setCurrentRevealIndex] = useState(0);
+  const [activeCategory, setActiveCategory] = useState(() => savedSession?.activeCategory || null);
+  const [secretWord, setSecretWord] = useState(() => savedSession?.secretWord || '');
+  const [assignedRoles, setAssignedRoles] = useState(() => savedSession?.assignedRoles || []);
+  const [currentRevealIndex, setCurrentRevealIndex] = useState(() => savedSession?.currentRevealIndex || 0);
   const [isHoldingToReveal, setIsHoldingToReveal] = useState(false);
 
   // Discussion & Timer
-  const [timeLeft, setTimeLeft] = useState(120);
-  const [timerRunning, setTimerRunning] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(() => savedSession?.timeLeft ?? 120);
+  const [timerRunning, setTimerRunning] = useState(() => savedSession?.timerRunning || false);
 
   // Vote
-  const [suspectedSpy, setSuspectedSpy] = useState(null);
+  const [suspectedSpy, setSuspectedSpy] = useState(() => savedSession?.suspectedSpy || null);
+
+  // Persist Spy session across page refresh
+  useEffect(() => {
+    try {
+      const dataToSave = {
+        phase,
+        playerCount,
+        playerNames,
+        spyCount,
+        discussionDuration,
+        selectedCategoryIds,
+        activeCategory,
+        secretWord,
+        assignedRoles,
+        currentRevealIndex,
+        timeLeft,
+        timerRunning,
+        suspectedSpy
+      };
+      localStorage.setItem(SPY_GAME_SESSION_KEY, JSON.stringify(dataToSave));
+    } catch (e) {}
+  }, [
+    phase,
+    playerCount,
+    playerNames,
+    spyCount,
+    discussionDuration,
+    selectedCategoryIds,
+    activeCategory,
+    secretWord,
+    assignedRoles,
+    currentRevealIndex,
+    timeLeft,
+    timerRunning,
+    suspectedSpy
+  ]);
 
   // Fetch full categories on mount
   useEffect(() => {
@@ -170,7 +217,9 @@ export const SpyGame = ({ onExit }) => {
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0) {
             setAllCategories(data);
-            setSelectedCategoryIds(data.map((c) => c.id));
+            if (!savedSession?.selectedCategoryIds || savedSession.selectedCategoryIds.length === 0) {
+              setSelectedCategoryIds(data.map((c) => c.id));
+            }
             return;
           }
         }
@@ -180,20 +229,22 @@ export const SpyGame = ({ onExit }) => {
         setLoadingCategories(false);
       }
       setAllCategories(DEFAULT_FALLBACK_CATEGORIES);
-      setSelectedCategoryIds(DEFAULT_FALLBACK_CATEGORIES.map((c) => c.id));
+      if (!savedSession?.selectedCategoryIds || savedSession.selectedCategoryIds.length === 0) {
+        setSelectedCategoryIds(DEFAULT_FALLBACK_CATEGORIES.map((c) => c.id));
+      }
     };
     loadCategories();
   }, []);
 
-  // Update players list when count changes
+  // Update players list when count changes (keep user typed names, leave new slots blank)
   const handlePlayerCountChange = (count) => {
     setPlayerCount(count);
     const updated = [...playerNames];
     while (updated.length < count) {
-      updated.push(DEFAULT_PLAYER_NAMES[updated.length] || `لاعب ${updated.length + 1}`);
+      updated.push('');
     }
     setPlayerNames(updated.slice(0, count));
-    if (count < 7 && spyCount > 1) {
+    if (count < 6 && spyCount > 1) {
       setSpyCount(1);
     }
   };
@@ -204,6 +255,29 @@ export const SpyGame = ({ onExit }) => {
     setPlayerNames(updated);
   };
 
+  // Pick a suggestion chip into the next empty player slot
+  const handlePickSuggestion = (sugName) => {
+    const updated = [...playerNames];
+    const emptyIdx = updated.findIndex((n) => !n || !n.trim());
+    if (emptyIdx !== -1) {
+      updated[emptyIdx] = sugName;
+    } else {
+      updated[updated.length - 1] = sugName;
+    }
+    setPlayerNames(updated);
+  };
+
+  // Auto-fill all slots with suggestions
+  const fillAllWithSuggestions = () => {
+    const updated = playerNames.map((n, i) => (n && n.trim()) ? n : SUGGESTED_NAMES[i % SUGGESTED_NAMES.length]);
+    setPlayerNames(updated);
+  };
+
+  // Clear all names
+  const clearAllNames = () => {
+    setPlayerNames(new Array(playerCount).fill(''));
+  };
+
   const toggleCategorySelection = (catId) => {
     if (selectedCategoryIds.includes(catId)) {
       if (selectedCategoryIds.length <= 1) return; // Keep at least 1
@@ -211,6 +285,28 @@ export const SpyGame = ({ onExit }) => {
     } else {
       setSelectedCategoryIds([...selectedCategoryIds, catId]);
     }
+  };
+
+  const handleEndRound = () => {
+    setPhase('setup');
+    setActiveCategory(null);
+    setSecretWord('');
+    setAssignedRoles([]);
+    setCurrentRevealIndex(0);
+    setIsHoldingToReveal(false);
+    setTimeLeft(discussionDuration);
+    setTimerRunning(false);
+    setSuspectedSpy(null);
+    try {
+      localStorage.removeItem(SPY_GAME_SESSION_KEY);
+    } catch (e) {}
+  };
+
+  const handleExitGame = () => {
+    try {
+      localStorage.removeItem(SPY_GAME_SESSION_KEY);
+    } catch (e) {}
+    onExit?.();
   };
 
   // Start the secret round
@@ -232,7 +328,7 @@ export const SpyGame = ({ onExit }) => {
     }
 
     const roles = playerNames.map((name, idx) => ({
-      name,
+      name: (name && name.trim()) ? name.trim() : `لاعب ${idx + 1}`,
       isSpy: spyIndices.has(idx),
       hasRevealed: false
     }));
@@ -272,7 +368,7 @@ export const SpyGame = ({ onExit }) => {
       <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 sm:px-8 py-3 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-3">
           <button
-            onClick={onExit}
+            onClick={handleExitGame}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition border border-slate-700 cursor-pointer"
           >
             <ArrowRight className="w-4 h-4" />
@@ -290,7 +386,7 @@ export const SpyGame = ({ onExit }) => {
         <div className="flex items-center gap-2">
           {phase !== 'setup' && (
             <button
-              onClick={() => setPhase('setup')}
+              onClick={handleEndRound}
               className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 text-xs font-bold border border-rose-800/60 transition cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -347,13 +443,35 @@ export const SpyGame = ({ onExit }) => {
 
             {/* Player Names Inputs Grid */}
             <div className="space-y-2">
-              <label className="block text-xs font-black text-slate-300">
-                أسماء اللاعبين (مرتبة حسب التمرير):
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-black text-slate-300">
+                  أسماء اللاعبين (مرتبة حسب التمرير):
+                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={fillAllWithSuggestions}
+                    className="text-[10px] text-amber-400 hover:text-amber-300 font-bold transition cursor-pointer"
+                    title="تعبئة الخانات الفارغة بأسماء مقترحة"
+                  >
+                    💡 تعبئة مقترحة
+                  </button>
+                  <span className="text-slate-700">|</span>
+                  <button
+                    type="button"
+                    onClick={clearAllNames}
+                    className="text-[10px] text-rose-400 hover:text-rose-300 font-bold transition cursor-pointer"
+                    title="تفريغ كافة الخانات"
+                  >
+                    مسح الأسماء
+                  </button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-48 overflow-y-auto p-1">
                 {playerNames.map((name, idx) => (
-                  <div key={idx} className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/80">
-                    <span className="w-6 h-6 rounded-lg bg-slate-700 flex items-center justify-center text-xs font-black text-amber-400">
+                  <div key={idx} className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/80 focus-within:border-amber-400/80 transition-colors">
+                    <span className="w-6 h-6 rounded-lg bg-slate-700 flex items-center justify-center text-xs font-black text-amber-400 shrink-0">
                       {idx + 1}
                     </span>
                     <input
@@ -363,8 +481,44 @@ export const SpyGame = ({ onExit }) => {
                       className="bg-transparent border-none text-xs text-white font-bold w-full focus:outline-none"
                       placeholder={`لاعب ${idx + 1}`}
                     />
+                    {name && (
+                      <button
+                        type="button"
+                        onClick={() => handleNameChange(idx, '')}
+                        className="text-slate-500 hover:text-slate-300 text-xs px-1 cursor-pointer"
+                      >
+                        ×
+                      </button>
+                    )}
                   </div>
                 ))}
+              </div>
+
+              {/* Interactive Suggested Names Bar */}
+              <div className="mt-2 bg-slate-900/90 p-2.5 rounded-2xl border border-slate-800">
+                <span className="block text-[11px] font-bold text-amber-400/90 mb-1.5">
+                  اضغط على أي اسم لاختياره مباشرة في الخانة الفارغة:
+                </span>
+                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                  {SUGGESTED_NAMES.map((sugName) => {
+                    const isChosen = playerNames.includes(sugName);
+                    return (
+                      <button
+                        key={sugName}
+                        type="button"
+                        disabled={isChosen}
+                        onClick={() => handlePickSuggestion(sugName)}
+                        className={`px-2.5 py-1 rounded-xl text-xs font-bold transition cursor-pointer border ${
+                          isChosen
+                            ? 'bg-slate-800 text-slate-500 border-slate-800 cursor-not-allowed opacity-50'
+                            : 'bg-slate-800 hover:bg-amber-500/20 text-slate-200 hover:text-amber-300 border-slate-700 hover:border-amber-400/60 active:scale-95'
+                        }`}
+                      >
+                        + {sugName}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
@@ -846,7 +1000,7 @@ export const SpyGame = ({ onExit }) => {
                     </button>
 
                     <button
-                      onClick={() => setPhase('setup')}
+                      onClick={handleEndRound}
                       className="px-5 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs sm:text-sm rounded-2xl transition border border-slate-700 cursor-pointer"
                     >
                       تغيير الإعدادات
@@ -858,6 +1012,9 @@ export const SpyGame = ({ onExit }) => {
           </motion.div>
         )}
       </main>
+
+      {/* Social Media Footer */}
+      <SocialFooter isDark={true} />
     </div>
   );
 };
