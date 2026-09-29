@@ -348,9 +348,16 @@ async def import_questions_json(
     db: Session = Depends(get_db),
     admin_user: User = Depends(require_admin)
 ):
-    """Import questions from a JSON array or an object containing a questions array."""
+    MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+    raw_content = await file.read()
+    if len(raw_content) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="حجم الملف كبير جداً (الحد الأقصى هو 5 ميجابايت)"
+        )
+
     try:
-        payload = json.loads((await file.read()).decode("utf-8"))
+        payload = json.loads(raw_content.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=400, detail="ملف JSON غير صالح أو ليس بترميز UTF-8.") from exc
 

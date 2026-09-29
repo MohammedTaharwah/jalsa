@@ -11,7 +11,6 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
-    balance: Optional[int] = 0
 
 
 class UserUpdate(BaseModel):

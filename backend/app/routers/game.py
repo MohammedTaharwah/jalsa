@@ -9,6 +9,7 @@ from app.models.question import Question
 from app.models.category import Category
 from app.models.seen_question import UserSeenQuestions
 from app.models.user import User
+from app.core.deps import get_current_user
 from app.schemas.question import QuestionOut
 from app.schemas.seen_question import (
     RecordSeenQuestionsRequest,
@@ -243,11 +244,18 @@ def record_seen_questions(
 @router.post("/reset-seen")
 def reset_user_seen_history(
     user_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    إعادة تصفير سجل الأسئلة المستهلكة للمستخدم في حال رغب بإعادة لعب كافة الأسئلة.
+    إعادة تصفير سجل الأسئلة المستهلكة للمستخدم في حال رغب بإعادة لعب كافة الأسئلة (خاص بصاحب الحساب أو المدير فقط).
     """
+    if current_user.id != user_id and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="غير مصرح لك بتصفير سجل أسئلة مستخدم آخر"
+        )
+
     deleted = db.query(UserSeenQuestions).filter(
         UserSeenQuestions.user_id == user_id
     ).delete()

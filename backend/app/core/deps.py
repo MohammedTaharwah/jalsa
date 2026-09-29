@@ -62,7 +62,8 @@ def verify_n8n_webhook_key(
     """Security Layer: Verify that the incoming webhook request originates from our authorized n8n instance."""
     from app.config import settings
 
-    if not x_n8n_api_key or x_n8n_api_key != settings.N8N_WEBHOOK_SECRET:
+    import secrets
+    if not x_n8n_api_key or not secrets.compare_digest(x_n8n_api_key, settings.N8N_WEBHOOK_SECRET):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden: Invalid or missing X-N8N-API-KEY header."
