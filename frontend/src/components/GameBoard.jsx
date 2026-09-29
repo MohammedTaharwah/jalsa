@@ -698,13 +698,51 @@ timeLeft <= (reboundState.isActive ? 3 : 5) ? 'text-rose-600 animate-pulse' : 't
 
 {/* Turn Banner OR Rebound Chance Banner */}
 {reboundState.isActive ? (
-<div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white text-xs sm:text-sm font-black mx-auto shadow-md animate-bounce">
-<Zap className="w-4 h-4 fill-white" />
-<span>فرصة خطف النقاط لفريق: <strong className="underline">[{teams[reboundState.teamIndex]?.name}]</strong>!</span>
+<div className="inline-flex items-center gap-3 px-5 py-2 rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white text-xs sm:text-sm font-black mx-auto shadow-md">
+<div className="flex items-center gap-1.5">
+  <Zap className="w-4 h-4 fill-white" />
+  <span>فرصة خطف النقاط لفريق: <strong className="underline">[{teams[reboundState.teamIndex]?.name}]</strong> ({teams[reboundState.teamIndex]?.score} ن)</span>
+</div>
+<div className="inline-flex items-center gap-1 bg-black/25 rounded-lg p-0.5 border border-white/20">
+  <button
+    type="button"
+    onClick={() => adjustTeamScore(teams[reboundState.teamIndex]?.id, 200)}
+    className="px-2 py-0.5 rounded bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-black leading-none shadow-xs active:scale-95 transition cursor-pointer"
+    title="إضافة 200 نقطة للفريق"
+  >
+    +200
+  </button>
+  <button
+    type="button"
+    onClick={() => adjustTeamScore(teams[reboundState.teamIndex]?.id, -200)}
+    className="px-2 py-0.5 rounded bg-rose-500 hover:bg-rose-600 text-white text-[11px] font-black leading-none shadow-xs active:scale-95 transition cursor-pointer"
+    title="خصم 200 نقطة من الفريق"
+  >
+    -200
+  </button>
+</div>
 </div>
 ) : (
-<div className="inline-block px-4 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-slate-700 text-xs font-black mx-auto">
-دور الفريق للإجابة: <strong className="text-purple-600 font-extrabold">{currentTeam.name}</strong>
+<div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-slate-700 text-xs font-black mx-auto">
+<span>دور الفريق للإجابة: <strong className="text-purple-600 font-extrabold">{currentTeam.name}</strong> ({currentTeam.score} ن)</span>
+<div className="inline-flex items-center gap-1 bg-slate-200/90 rounded-lg p-0.5 border border-slate-300">
+  <button
+    type="button"
+    onClick={() => adjustTeamScore(currentTeam.id, 200)}
+    className="px-2 py-0.5 rounded bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-black leading-none shadow-xs active:scale-95 transition cursor-pointer"
+    title="إضافة 200 نقطة للفريق الحالي"
+  >
+    +200
+  </button>
+  <button
+    type="button"
+    onClick={() => adjustTeamScore(currentTeam.id, -200)}
+    className="px-2 py-0.5 rounded bg-rose-500 hover:bg-rose-600 text-white text-[11px] font-black leading-none shadow-xs active:scale-95 transition cursor-pointer"
+    title="خصم 200 نقطة من الفريق الحالي"
+  >
+    -200
+  </button>
+</div>
 </div>
 )}
 
