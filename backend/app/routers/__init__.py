@@ -8,6 +8,7 @@ from app.routers.webhooks import router as webhooks_router
 from app.routers.promo import router as promo_router
 from app.routers.game import router as game_router
 from app.routers.payment import router as payment_router
+from app.routers.spy import router as spy_router
 
 __all__ = [
     "auth_router",
@@ -19,5 +20,6 @@ __all__ = [
     "webhooks_router",
     "promo_router",
     "game_router",
-    "payment_router"
+    "payment_router",
+    "spy_router"
 ]

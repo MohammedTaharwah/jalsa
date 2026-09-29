@@ -93,6 +93,7 @@ export const useGameStore = create((set, get) => {
   return {
     // ================= STATE =================
     gameStage: savedActiveGame ? savedActiveGame.gameStage : 'setup', // 'setup' | 'playing' | 'game_over'
+    gameMode: 'trivia', // 'trivia' | 'spy'
     teams: savedActiveGame ? savedActiveGame.teams : [
       {
         id: 1,
@@ -141,6 +142,27 @@ export const useGameStore = create((set, get) => {
     isAnswerRevealed: false,
     isCorrect: null,
     eliminatedOptions: [],
+
+    // Timer Setting (30s question timer & 10s rebound timer)
+    isTimerEnabled: (() => {
+      try {
+        const saved = localStorage.getItem('jalsah_timer_enabled');
+        if (saved !== null) return JSON.parse(saved);
+      } catch (e) {}
+      return true;
+    })(),
+
+    // Rebound Chance (Second Team Opportunity on Wrong Answer)
+    reboundState: {
+      isActive: false,
+      teamIndex: null,
+      wrongOptions: [],
+      timeLeft: 10,
+      basePoints: 0
+    },
+
+    // Mystery Tile Modifier ('shield' | null)
+    mysteryModifier: null,
 
     // Fortune Wheel State
     wheelModalOpen: false,
@@ -216,6 +238,10 @@ currentUser: user,
 currentRoute: newRoute,
 availableGames: user?.games_balance !== undefined ? user.games_balance : 1
 });
+},
+
+setGameMode: (gameMode) => {
+  set({ gameMode });
 },
 
 setCurrentRoute: (route) => {
@@ -838,6 +864,41 @@ categoryName: category.name || category.categoryName,
 categoryMeta: category.categoryMeta || CATEGORIES_DATA.find(c => c.id === tile.categoryId)
 };
 
+let activeMod = isStealMode ? 'steal' : get().activeModifier;
+let mysteryMod = null;
+let banner = get().gameBanner;
+
+// تفعيل مفاجأة المربع إذا كان مربع مفاجأة (Mystery Tile)
+if (tile.isMystery) {
+const mysteryTypes = ['double', 'shield', 'bonus'];
+const chosenType = mysteryTypes[Math.floor(Math.random() * mysteryTypes.length)];
+
+if (chosenType === 'double') {
+activeMod = 'double';
+banner = {
+type: 'double',
+title: '🎁 مربع المفاجأة: دبل النقاط التلقائي (x2)!',
+message: `فريق [${currentTeam.name}]، نقاط هذا السؤال أصبحت مضاعفة x2 تلقائياً!`
+};
+} else if (chosenType === 'shield') {
+mysteryMod = 'shield';
+banner = {
+type: 'info',
+title: '🎁 مربع المفاجأة: درع الحماية!',
+message: `فريق [${currentTeam.name}] حصل على درع الحماية! في حال الخطأ لن تُخصم أي نقاط!`
+};
+} else if (chosenType === 'bonus') {
+set(state => ({
+teams: state.teams.map((t, idx) => idx === currentTurn ? { ...t, score: t.score + 100 } : t)
+}));
+banner = {
+type: 'info',
+title: '🎁 مربع المفاجأة: بونص فوري +100 نقطة!',
+message: `أضيفت 100 نقطة فورية هدية إلى رصيد فريق [${currentTeam.name}]!`
+};
+}
+}
+
 set({
 activeTile: fullTileData,
 activeQuestion: tile.question,
@@ -846,7 +907,16 @@ isAnswerRevealed: false,
 isCorrect: null,
 eliminatedOptions: [],
 questionModalOpen: true,
-activeModifier: isStealMode ? 'steal' : get().activeModifier
+activeModifier: activeMod,
+mysteryModifier: mysteryMod,
+reboundState: {
+isActive: false,
+teamIndex: null,
+wrongOptions: [],
+timeLeft: 10,
+basePoints: 0
+},
+gameBanner: banner
 });
 },
 
@@ -974,21 +1044,151 @@ get().nextTurn();
 },
 
 /**
-* منطق احتساب النقاط وتتبع مستويات الأسئلة وتحدي العجلة
+ * تبديل حالة المؤقت (30 ثانية للسؤال و10 ثوانٍ لفرصة الخطف)
+ */
+toggleTimer: () => {
+set(state => {
+const nextVal = !state.isTimerEnabled;
+try {
+localStorage.setItem('jalsah_timer_enabled', JSON.stringify(nextVal));
+} catch (e) {}
+return {
+isTimerEnabled: nextVal,
+gameBanner: {
+type: 'info',
+title: nextVal ? 'المؤقت مفعّل (30 ثانية)' : 'المؤقت معطّل (وقت مفتوح)',
+message: nextVal ? 'تم تفعيل مؤقت الـ 30 ثانية ومؤقت الـ 10 ثوانٍ لفرصة الخطف.' : 'تم تعطيل المؤقت، الإجابة وفرصة الخطف أصبحت بوقت مفتوح.'
+}
+};
+});
+},
+
+/**
+ * تخطي فرصة الخطف من قبل الفريق الثاني دون أي خصم (0 نقطة)
+ */
+skipRebound: () => {
+const { reboundState, activeTile, teams } = get();
+if (!reboundState.isActive || !activeTile) return;
+const secondTeam = teams[reboundState.teamIndex];
+
+set(state => ({
+board: state.board.map(col => ({
+...col,
+tiles: col.tiles.map(tile => {
+if (tile.id === activeTile.id) {
+return {
+...tile,
+isUsed: true,
+status: 'answered',
+winnerTeamId: null
+};
+}
+return tile;
+})
+})),
+reboundState: {
+isActive: false,
+teamIndex: null,
+wrongOptions: [],
+timeLeft: 10,
+basePoints: 0
+},
+questionModalOpen: false,
+activeTile: null,
+activeQuestion: null,
+selectedOption: null,
+isAnswerRevealed: false,
+isCorrect: null,
+eliminatedOptions: [],
+mysteryModifier: null,
+gameBanner: {
+type: 'info',
+title: 'تخطي الفرصة دون مخاطرة',
+message: `اختار فريق [${secondTeam?.name || 'الخصم'}] عدم المخاطرة وتخطي الفرصة دون أي خصم.`
+}
+}));
+get().nextTurn();
+},
+
+/**
+* منطق احتساب النقاط وتتبع مستويات الأسئلة وتحدي العجلة وفرصة الخطف للفريق الثاني
 */
 handleAnswer: (isCorrect, pointsOverride) => {
-const { activeTile, activeQuestion, activeModifier, isStealMode, isWheelChallengeActive, teams, currentTurn } = get();
+const {
+activeTile,
+activeQuestion,
+activeModifier,
+mysteryModifier,
+isStealMode,
+isWheelChallengeActive,
+teams,
+currentTurn,
+reboundState,
+isTimerEnabled,
+selectedOption
+} = get();
+
 if (!activeTile || !activeQuestion) return;
 
-let basePoints = pointsOverride || activeTile.points || 200;
-if (activeModifier === 'double') {
+let basePoints = pointsOverride || reboundState.basePoints || activeTile.points || 200;
+if (activeModifier === 'double' && !reboundState.isActive) {
 basePoints *= 2;
 }
 
 const currentTeam = teams[currentTurn];
-const rivalTeam = teams.find(t => t.id !== currentTeam.id) || teams[(currentTurn + 1) % teams.length];
+const rivalIndex = (currentTurn + 1) % teams.length;
+const rivalTeam = teams[rivalIndex];
 
-// Record question as seen in backend database
+// ========================================================
+// 1. إجابة الفريق الثاني في فرصة الخطف (Rebound Opportunity)
+// ========================================================
+if (reboundState.isActive) {
+const secondTeamIndex = reboundState.teamIndex;
+const secondTeam = teams[secondTeamIndex];
+
+if (isCorrect) {
+confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+set(state => ({
+teams: state.teams.map((t, idx) => idx === secondTeamIndex ? { ...t, score: t.score + basePoints } : t),
+board: state.board.map(col => ({
+...col,
+tiles: col.tiles.map(tile => tile.id === activeTile.id ? { ...tile, isUsed: true, status: 'answered', winnerTeamId: secondTeam.id } : tile)
+})),
+isAnswerRevealed: true,
+isCorrect: true,
+reboundState: { isActive: false, teamIndex: null, wrongOptions: [], timeLeft: 10, basePoints: 0 },
+gameBanner: {
+type: 'steal_success',
+title: '⚡ خطف النقاط بنجاح!',
+message: `إجابة صحيحة! كسب فريق [${secondTeam.name}] ${basePoints} نقطة كاملة بخطف السؤال!`
+}
+}));
+} else {
+// أخطأ الفريق الثاني في فرصة الخطف (أو انتهى وقت الـ 10 ثواني) -> يُخصم نصف النقاط
+const penalty = Math.floor(basePoints / 2);
+set(state => ({
+teams: state.teams.map((t, idx) => idx === secondTeamIndex ? { ...t, score: Math.max(0, t.score - penalty) } : t),
+board: state.board.map(col => ({
+...col,
+tiles: col.tiles.map(tile => tile.id === activeTile.id ? { ...tile, isUsed: true, status: 'answered', winnerTeamId: null } : tile)
+})),
+isAnswerRevealed: true,
+isCorrect: false,
+reboundState: { isActive: false, teamIndex: null, wrongOptions: [], timeLeft: 10, basePoints: 0 },
+gameBanner: {
+type: 'warning',
+title: 'إجابة خاطئة في فرصة الخطف!',
+message: `أخطأ فريق [${secondTeam.name}]! تم خصم نصف النقاط (${penalty} نقطة).`
+}
+}));
+}
+persistActiveGame(get());
+return;
+}
+
+// ========================================================
+// 2. إجابة الفريق الأساسي صاحب الدور
+// ========================================================
 if (activeQuestion && typeof activeQuestion.id === 'number') {
 const currentUserId = get().currentUser?.id;
 saveSeenQuestionId(currentUserId, activeQuestion.id);
@@ -1001,7 +1201,6 @@ body: JSON.stringify({ user_id: currentUserId, question_ids: [activeQuestion.id]
 } catch (e) {}
 }
 
-// Dynamic Level Tracking Record
 const newPick = {
 teamId: currentTeam.id,
 categoryId: activeTile.categoryId,
@@ -1015,7 +1214,7 @@ let banner = null;
 if (isWheelChallengeActive) {
 banner = {
 type: 'wheel_win',
-title: 'فوز بتحدي العجلة!',
+title: 'فوز بتحدي العجلة! 🎡',
 message: `إجابة صحيحة! كسب فريق [${currentTeam.name}] ${basePoints} نقطة وسيتم تدوير العجلة لصالحه!`
 };
 } else if (isStealMode || activeModifier === 'steal') {
@@ -1055,29 +1254,40 @@ wheelChallengeBeneficiary: 'current',
 gameBanner: banner || state.gameBanner
 }));
 } else {
-// Wrong answer
+// الفريق الأساسي أخطأ أو انتهى وقته!
+const hasShield = mysteryModifier === 'shield';
+const penalty = hasShield ? 0 : Math.floor(basePoints / 2);
+
 let banner = null;
-if (isWheelChallengeActive) {
+if (hasShield) {
+banner = {
+type: 'info',
+title: '🛡️ درع الحماية أنقذك!',
+message: `إجابة غير صحيحة لفريق [${currentTeam.name}]، لكن درع الحماية منع خصم أي نقاط!`
+};
+} else if (isWheelChallengeActive) {
 banner = {
 type: 'wheel_loss',
 title: 'خسارة تحدي العجلة!',
 message: `إجابة خاطئة! خسر فريق [${currentTeam.name}] فرصة التحدي ونقاط السؤال.`
 };
-} else if (isStealMode || activeModifier === 'steal') {
-banner = {
-type: 'steal_failed',
-title: 'فشلت محاولة السرقة!',
-message: `إجابة خاطئة! أهدر فريق [${currentTeam.name}] فرصة سرقة السؤال وتم حرق المربع.`
-};
 }
 
+// خصم نصف النقاط من الفريق الأساسي
 set(state => ({
 teams: state.teams.map((t, idx) => {
 if (idx === currentTurn) {
-return { ...t, score: Math.max(0, t.score - Math.floor(basePoints / 2)) };
+return { ...t, score: Math.max(0, t.score - penalty) };
 }
 return t;
 }),
+teamLevelPicks: [...state.teamLevelPicks, newPick],
+gameBanner: banner || state.gameBanner
+}));
+
+// في تحدي العجلة: ينتهي التحدي دون فرصة خطف للخصم
+if (isWheelChallengeActive) {
+set(state => ({
 board: state.board.map(col => ({
 ...col,
 tiles: col.tiles.map(tile => {
@@ -1092,13 +1302,33 @@ winnerTeamId: null
 return tile;
 })
 })),
-teamLevelPicks: [...state.teamLevelPicks, newPick],
 isAnswerRevealed: true,
 isCorrect: false,
-isStealMode: false,
-wheelChallengeBeneficiary: 'none',
-gameBanner: banner || state.gameBanner
+wheelChallengeBeneficiary: 'none'
 }));
+persistActiveGame(get());
+return;
+}
+
+// إتاحة فرصة الخطف للفريق الثاني (Rebound Chance)
+const wrongOpts = selectedOption ? [selectedOption] : [];
+set({
+reboundState: {
+isActive: true,
+teamIndex: rivalIndex,
+wrongOptions: wrongOpts,
+timeLeft: isTimerEnabled ? 10 : 0,
+basePoints: basePoints
+},
+isAnswerRevealed: false,
+selectedOption: null,
+isCorrect: null,
+gameBanner: {
+type: 'warning',
+title: `⚡ فرصة خطف السؤال لفريق [${rivalTeam.name}]!`,
+message: `أخطأ فريق [${currentTeam.name}]. لديكم فرصة لخطف الـ ${basePoints} نقطة أو تخطي الفرصة دون مخاطرة!`
+}
+});
 }
 
 persistActiveGame(get());

@@ -20,6 +20,7 @@ import { AdminCategoriesQuestions } from './AdminCategoriesQuestions';
 import { AdminAIControlRoom } from './AdminAIControlRoom';
 import { AdminPackagesPromos } from './AdminPackagesPromos';
 import { AdminGameEconomy } from './AdminGameEconomy';
+import { AdminSpyManager } from './AdminSpyManager';
 
 export const AdminLayout = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -43,6 +44,13 @@ export const AdminLayout = ({ onLogout }) => {
       label: 'الفئات وبنك الأسئلة',
       icon: FolderTree,
       desc: 'إدارة الفئات ومستويات النقاط'
+    },
+    {
+      id: 'spy-game',
+      label: 'لعبة مين الدسوس؟',
+      icon: Sparkles,
+      desc: 'إدارة الفئات والكلمات السرية',
+      badge: 'جديد'
     },
     {
       id: 'ai-control',
@@ -73,6 +81,8 @@ export const AdminLayout = ({ onLogout }) => {
         return <AdminUsers />;
       case 'categories':
         return <AdminCategoriesQuestions />;
+      case 'spy-game':
+        return <AdminSpyManager />;
       case 'ai-control':
         return <AdminAIControlRoom />;
       case 'packages':

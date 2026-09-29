@@ -126,7 +126,8 @@ availableGames,
 setAvailableGames,
 consumeGameSession,
 currentUser,
-setCurrentUser
+setCurrentUser,
+setGameMode
 } = useGame();
 
 const SETUP_STEP_KEY = 'jalsah_setup_step';
@@ -662,6 +663,31 @@ className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight mb-1"
 <p className="text-slate-500 text-xs sm:text-sm max-w-md font-medium">
 خطوات بسيطة لتخصيص الفرق والقوانين للمنافسة على الشاشة المشتركة
 </p>
+</div>
+
+{/* ================= GAME MODE SELECTOR ================= */}
+<div className="w-full max-w-3xl mb-6 flex items-center justify-center">
+  <div className="bg-white p-1.5 rounded-2xl border border-slate-200/90 shadow-sm flex items-center gap-2 w-full sm:w-auto">
+    <button
+      type="button"
+      className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs sm:text-sm shadow-md shadow-purple-500/20 flex items-center justify-center gap-2 transition"
+    >
+      <Trophy className="w-4 h-4 text-amber-300" />
+      <span>جلسة التحدي (Jeopardy)</span>
+    </button>
+
+    <button
+      type="button"
+      onClick={() => setGameMode('spy')}
+      className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-amber-50 text-slate-700 hover:text-amber-800 font-black text-xs sm:text-sm border border-transparent hover:border-amber-200 flex items-center justify-center gap-2 transition group cursor-pointer"
+    >
+      <span className="text-base group-hover:scale-110 transition-transform">🕵️‍♂️</span>
+      <span>مين الدسوس؟</span>
+      <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-[10px] text-white font-extrabold shadow-sm">
+        جديد
+      </span>
+    </button>
+  </div>
 </div>
 
 {/* Stepper Progress Bar */}

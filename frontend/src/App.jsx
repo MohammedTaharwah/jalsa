@@ -4,6 +4,7 @@ import { GameSetup } from './components/GameSetup';
 import { GameBoard } from './components/GameBoard';
 import { GameOverScreen } from './components/GameOverScreen';
 import { AdminLayout } from './components/admin/AdminLayout';
+import { SpyGame } from './components/spy/SpyGame';
 import { AuthModal } from './components/AuthModal';
 import { ShieldAlert, ArrowLeft } from 'lucide-react';
 
@@ -44,7 +45,7 @@ class AppErrorBoundary extends React.Component {
 }
 
 const GameContainer = () => {
-  const { gameStage, currentUser, currentRoute, setCurrentRoute, logout } = useGame();
+  const { gameStage, currentUser, currentRoute, setCurrentRoute, logout, gameMode, setGameMode } = useGame();
 
   // Sync state with browser location path
   useEffect(() => {
@@ -111,6 +112,11 @@ const GameContainer = () => {
   // ====================================================================
   // PLAYER EXPERIENCE (Non-admin)
   // ====================================================================
+
+  // Standalone "مين الدسوس؟" Imposter Game Mode
+  if (gameMode === 'spy') {
+    return <SpyGame onExit={() => setGameMode('trivia')} />;
+  }
 
   // 1. Setup Wizard Screen (Light vibrant theme)
   if (gameStage === 'setup' && currentRoute !== 'board') {

@@ -20,6 +20,7 @@ from app.routers import (
     promo_router,
     game_router,
     payment_router,
+    spy_router,
 )
 
 # Configure logging
@@ -81,6 +82,7 @@ app.include_router(webhooks_router)
 app.include_router(promo_router)
 app.include_router(game_router)
 app.include_router(payment_router)
+app.include_router(spy_router)
 
 
 # -------------------------------------------------------------

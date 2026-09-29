@@ -45,6 +45,11 @@ selectedOption,
 isAnswerRevealed,
 isCorrect,
 activeModifier,
+mysteryModifier,
+reboundState,
+skipRebound,
+isTimerEnabled,
+toggleTimer,
 gameBanner,
 clearBanner,
 selectTile,
@@ -67,48 +72,64 @@ initGame(teams, ['sports', 'history', 'science', 'cinema', 'general', 'tech']);
 }
 }, [board?.length, initGame, availableGames, resetGame, teams]);
 
-// Circular Timer State (30 seconds per question)
+// Circular Timer State (30s for main question, 10s for rebound steal)
 const TIMER_SECONDS = 30;
+const REBOUND_SECONDS = 10;
+const currentMaxTime = reboundState.isActive ? REBOUND_SECONDS : TIMER_SECONDS;
 const [timeLeft, setTimeLeft] = useState(TIMER_SECONDS);
 const [timerActive, setTimerActive] = useState(false);
 
 // Exposed Question Mode local state (show / hide answer)
 const [isExposedAnswerShown, setIsExposedAnswerShown] = useState(false);
 
-// Sync timer when question modal opens
+// Sync timer when question modal opens or rebound triggers
 useEffect(() => {
-if (questionModalOpen && activeTile) {
+if (!questionModalOpen || !activeTile) {
+setTimerActive(false);
+return;
+}
+
+if (!isTimerEnabled) {
+setTimerActive(false);
+return;
+}
+
+if (reboundState.isActive) {
+setTimeLeft(REBOUND_SECONDS);
+setTimerActive(true);
+} else if (!isAnswerRevealed) {
 setTimeLeft(TIMER_SECONDS);
 setTimerActive(true);
 setIsExposedAnswerShown(false);
 } else {
 setTimerActive(false);
 }
-}, [questionModalOpen, activeTile]);
+}, [questionModalOpen, activeTile, reboundState.isActive, isAnswerRevealed, isTimerEnabled]);
 
 // Countdown Interval Effect
 useEffect(() => {
 let interval = null;
-if (timerActive && timeLeft > 0 && !isAnswerRevealed) {
+if (timerActive && isTimerEnabled && timeLeft > 0 && !isAnswerRevealed) {
 interval = setInterval(() => {
 setTimeLeft(prev => prev - 1);
 }, 1000);
-} else if (timeLeft === 0 && !isAnswerRevealed && activeTile) {
-// Time is up! Trigger wrong answer
+} else if (timerActive && isTimerEnabled && timeLeft === 0 && !isAnswerRevealed && activeTile) {
+// Time is up!
 setTimerActive(false);
 handleAnswer(false);
 }
 return () => clearInterval(interval);
-}, [timerActive, timeLeft, isAnswerRevealed, activeTile, handleAnswer]);
+}, [timerActive, isTimerEnabled, timeLeft, isAnswerRevealed, activeTile, handleAnswer]);
 
 const currentTeam = teams[currentTurn] || teams[0];
 
 // Circular SVG timer calculation
-const strokeDashoffset = 100 - (timeLeft / TIMER_SECONDS) * 100;
+const strokeDashoffset = isTimerEnabled ? 100 - (timeLeft / currentMaxTime) * 100 : 0;
 
 // Calculate effective points for display
 const getDisplayPoints = () => {
 if (!activeTile) return 200;
+if (reboundState.isActive && reboundState.basePoints) return reboundState.basePoints;
 if (activeModifier === 'double') return activeTile.points * 2;
 if (activeModifier === 'exposed') return activeTile.points * 3;
 return activeTile.points;
@@ -287,6 +308,21 @@ title="تفعيل تحدي العجلة: اختر سؤال 400 نقطة من ا�
 <span>تحدي العجلة 🎡</span>
 </button>
 )}
+
+{/* Toggle Timer Action (30s / open time) */}
+<button
+type="button"
+onClick={toggleTimer}
+className={`px-2 py-1 rounded-xl text-[11px] font-black flex items-center gap-1 border transition-all cursor-pointer shadow-2xs ${
+isTimerEnabled
+? 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'
+: 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
+}`}
+title={isTimerEnabled ? "المؤقت مفعّل (30ث/10ث) - اضغط للإلغاء" : "المؤقت معطّل (وقت مفتوح) - اضغط للتفعيل"}
+>
+<Timer className="w-3.5 h-3.5" />
+<span>{isTimerEnabled ? 'المؤقت 30ث' : 'وقت مفتوح'}</span>
+</button>
 
 {/* Restart Session Action */}
 <button
@@ -542,7 +578,8 @@ className="relative w-full max-w-3xl bg-white rounded-3xl p-6 sm:p-10 shadow-[0_
 {activeTile.categoryName}
 </span>
 
-{/* Circular Animated SVG Timer */}
+{/* Circular Animated SVG Timer OR Open Time Badge */}
+{isTimerEnabled ? (
 <div className="flex items-center gap-2.5">
 <div className="relative w-12 h-12 flex items-center justify-center">
 <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
@@ -560,7 +597,7 @@ cy="18"
 r="14"
 fill="none"
 className={`transition-all duration-1000 ${
-timeLeft <= 5 ? 'stroke-rose-500' : 'stroke-purple-600'
+timeLeft <= (reboundState.isActive ? 3 : 5) ? 'stroke-rose-500' : 'stroke-purple-600'
 }`}
 strokeWidth="3.5"
 strokeDasharray="100"
@@ -570,7 +607,7 @@ strokeLinecap="round"
 </svg>
 <span
 className={`absolute font-black text-xs ${
-timeLeft <= 5 ? 'text-rose-600 animate-pulse' : 'text-slate-700'
+timeLeft <= (reboundState.isActive ? 3 : 5) ? 'text-rose-600 animate-pulse' : 'text-slate-700'
 }`}
 >
 {timeLeft}
@@ -581,7 +618,25 @@ timeLeft <= 5 ? 'text-rose-600 animate-pulse' : 'text-slate-700'
 {getDisplayPoints()} نقطة
 </span>
 </div>
+) : (
+<div className="flex items-center gap-2">
+<span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 font-bold text-xs border border-slate-200">
+وقت مفتوح ⏳
+</span>
+<span className="px-3.5 py-1.5 rounded-full bg-orange-500 text-white font-black text-xs shadow-md shadow-orange-500/20">
+{getDisplayPoints()} نقطة
+</span>
 </div>
+)}
+</div>
+
+{/* Mystery Tile Shield Banner */}
+{mysteryModifier === 'shield' && (
+<div className="px-4 py-2 rounded-2xl bg-emerald-50 text-emerald-900 border border-emerald-300 w-full flex items-center justify-center gap-2 font-black text-xs animate-pulse">
+<Shield className="w-4 h-4 text-emerald-600" />
+<span>🛡️ درع الحماية نشط! لن يتم خصم أي نقاط من فريقك في حال الخطأ.</span>
+</div>
+)}
 
 {/* Active Wheel Modifier Banner if applied */}
 {activeModifier && (
@@ -613,10 +668,17 @@ timeLeft <= 5 ? 'text-rose-600 animate-pulse' : 'text-slate-700'
 </div>
 )}
 
-{/* Turn Banner */}
+{/* Turn Banner OR Rebound Chance Banner */}
+{reboundState.isActive ? (
+<div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white text-xs sm:text-sm font-black mx-auto shadow-md animate-bounce">
+<Zap className="w-4 h-4 fill-white" />
+<span>فرصة خطف النقاط لفريق: <strong className="underline">[{teams[reboundState.teamIndex]?.name}]</strong>!</span>
+</div>
+) : (
 <div className="inline-block px-4 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-slate-700 text-xs font-black mx-auto">
 دور الفريق للإجابة: <strong className="text-purple-600 font-extrabold">{currentTeam.name}</strong>
 </div>
+)}
 
 {/* Big Arabic Question Text */}
 <div className="p-6 sm:p-8 rounded-3xl bg-slate-50 border border-slate-200 flex items-center justify-center min-h-[140px]">
@@ -677,16 +739,21 @@ className="px-6 py-3 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-b
 </div>
 ) : (
 /* Standard 4-Option Grid (أ، ب، ج، د) */
+<div className="space-y-4">
 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
 {(activeQuestion.options_json || []).map((option, idx) => {
 const letter = OPTION_LETTERS[idx] || '•';
 const isSelected = selectedOption === option;
 const isCorrectAnswer = option === activeQuestion.correct_answer;
+const isWrongFromPrevious = reboundState?.wrongOptions?.includes(option);
+const isButtonDisabled = isAnswerRevealed || isWrongFromPrevious;
 
 let style =
 'bg-white border-2 border-slate-200 text-slate-800 hover:border-purple-300 hover:bg-purple-50/40';
 
-if (isAnswerRevealed) {
+if (isWrongFromPrevious) {
+style = 'bg-rose-50/70 border-2 border-rose-200 text-rose-300 opacity-40 line-through cursor-not-allowed';
+} else if (isAnswerRevealed) {
 if (isCorrectAnswer) {
 style =
 'bg-emerald-500 border-2 border-emerald-600 text-white shadow-lg shadow-emerald-500/25 scale-[1.02]';
@@ -701,9 +768,9 @@ style = 'bg-slate-100 border-slate-200 text-slate-400 opacity-40';
 return (
 <motion.button
 key={idx}
-whileHover={!isAnswerRevealed ? { scale: 1.01 } : {}}
-whileTap={!isAnswerRevealed ? { scale: 0.98 } : {}}
-disabled={isAnswerRevealed}
+whileHover={!isButtonDisabled ? { scale: 1.01 } : {}}
+whileTap={!isButtonDisabled ? { scale: 0.98 } : {}}
+disabled={isButtonDisabled}
 onClick={() => selectOption(option)}
 className={`p-4 sm:p-5 rounded-2xl font-bold text-base sm:text-lg text-right transition-all flex items-center justify-between gap-3 shadow-sm ${style}`}
 >
@@ -726,9 +793,26 @@ isAnswerRevealed && (isCorrectAnswer || isSelected)
 {isAnswerRevealed && isSelected && !isCorrect && (
 <XCircle className="w-5 h-5 text-white" />
 )}
+{isWrongFromPrevious && (
+<XCircle className="w-5 h-5 text-rose-400 opacity-70" />
+)}
 </motion.button>
 );
 })}
+</div>
+
+{/* Skip Rebound Button (No penalty 0 points) */}
+{reboundState.isActive && !isAnswerRevealed && (
+<div className="flex items-center justify-center pt-2">
+<button
+onClick={skipRebound}
+className="px-6 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-black text-xs sm:text-sm transition-all flex items-center gap-2 cursor-pointer shadow-sm active:scale-95"
+>
+<Shield className="w-4 h-4 text-slate-500" />
+<span>تخطي الفرصة دون أي مخاطرة (0 نقطة)</span>
+</button>
+</div>
+)}
 </div>
 )}
 
