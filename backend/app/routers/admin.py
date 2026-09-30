@@ -146,6 +146,7 @@ def list_categories(
         cat_out = CategoryOut(
             id=cat.id,
             name=cat.name,
+            section=cat.section or "عام",
             description=cat.description,
             image_url=cat.image_url,
             created_at=cat.created_at,
@@ -171,6 +172,7 @@ def create_category(
 
     cat = Category(
         name=payload.name.strip(),
+        section=(payload.section or "عام").strip(),
         description=payload.description,
         image_url=payload.image_url
     )
@@ -180,6 +182,7 @@ def create_category(
     return CategoryOut(
         id=cat.id,
         name=cat.name,
+        section=cat.section or "عام",
         description=cat.description,
         image_url=cat.image_url,
         created_at=cat.created_at,
@@ -194,13 +197,15 @@ def update_category(
     db: Session = Depends(get_db),
     admin_user: User = Depends(require_admin)
 ):
-    """تعديل بيانات الفئة (الاسم، الوصف، أو الصورة)."""
+    """تعديل بيانات الفئة (الاسم، القسم، الوصف، أو الصورة)."""
     cat = db.query(Category).filter(Category.id == category_id).first()
     if not cat:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="الفئة غير موجودة")
 
     if payload.name is not None:
         cat.name = payload.name.strip()
+    if payload.section is not None:
+        cat.section = payload.section.strip() or "عام"
     if payload.description is not None:
         cat.description = payload.description
     if payload.image_url is not None:
@@ -213,6 +218,7 @@ def update_category(
     return CategoryOut(
         id=cat.id,
         name=cat.name,
+        section=cat.section or "عام",
         description=cat.description,
         image_url=cat.image_url,
         created_at=cat.created_at,
@@ -376,15 +382,26 @@ async def import_questions_json(
         if not isinstance(options, list) or len(options) < 2:
             raise HTTPException(status_code=422, detail=f"السؤال رقم {index + 1} يحتاج خيارين على الأقل.")
 
+        section_val = str(item.get("section") or item.get("category_section") or "عام").strip() or "عام"
         category = None
         if item.get("category_id"):
             category = db.query(Category).filter(Category.id == item["category_id"]).first()
         if not category and item.get("category_name"):
-            category = db.query(Category).filter(Category.name == item["category_name"].strip()).first()
+            cat_name = str(item["category_name"]).strip()
+            category = db.query(Category).filter(Category.name == cat_name).first()
             if not category:
-                category = Category(name=item["category_name"].strip(), description="Imported from JSON")
+                category = Category(
+                    name=cat_name,
+                    section=section_val,
+                    description=item.get("category_description") or "Imported from JSON"
+                )
                 db.add(category)
                 db.flush()
+            elif section_val != "عام" and (not category.section or category.section == "عام"):
+                category.section = section_val
+        elif category and section_val != "عام" and (not category.section or category.section == "عام"):
+            category.section = section_val
+
         if not category:
             raise HTTPException(status_code=422, detail=f"السؤال رقم {index + 1} يحتاج category_id أو category_name.")
 

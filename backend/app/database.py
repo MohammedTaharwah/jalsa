@@ -67,8 +67,9 @@ def init_db():
             try:
                 conn.execute(text("ALTER TABLE categories ADD COLUMN IF NOT EXISTS image_url TEXT;"))
                 conn.execute(text("ALTER TABLE categories ALTER COLUMN image_url TYPE TEXT;"))
+                conn.execute(text("ALTER TABLE categories ADD COLUMN IF NOT EXISTS section VARCHAR(100) DEFAULT 'عام';"))
             except Exception as e:
-                logger.warning(f"Could not migrate categories.image_url column: {e}")
+                logger.warning(f"Could not migrate categories table columns: {e}")
 
             conn.commit()
 

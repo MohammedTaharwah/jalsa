@@ -34,7 +34,8 @@ X,
 Gift,
 CreditCard,
 Snowflake,
-User
+User,
+Search
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useGame } from '../context/GameContext';
@@ -251,6 +252,7 @@ const mappedCategories = databaseCategories.map((category, idx) => ({
   id: category.id,
   dbId: category.id,
   name: category.name,
+  section: category.section || 'عام',
   desc: category.description || 'فئة التحدي والأسئلة',
   imageUrl: category.image_url || null,
   color: GRADIENT_COLORS[idx % GRADIENT_COLORS.length],
@@ -284,6 +286,30 @@ setIsCategoriesLoading(false);
 
 loadCategories();
 }, []);
+
+// Category Section Tabs & Search Filter
+const [selectedSectionFilter, setSelectedSectionFilter] = useState('الكل');
+const [categorySearchQuery, setCategorySearchQuery] = useState('');
+
+const categorySections = React.useMemo(() => {
+  const set = new Set();
+  availableCategories.forEach(c => {
+    if (c.section && c.section.trim()) {
+      set.add(c.section.trim());
+    }
+  });
+  return ['الكل', ...Array.from(set)];
+}, [availableCategories]);
+
+const displayedCategories = React.useMemo(() => {
+  return availableCategories.filter(cat => {
+    const matchesSection = selectedSectionFilter === 'الكل' || (cat.section || 'عام') === selectedSectionFilter;
+    const matchesSearch = !categorySearchQuery.trim() || 
+      cat.name.toLowerCase().includes(categorySearchQuery.toLowerCase().trim()) ||
+      (cat.desc && cat.desc.toLowerCase().includes(categorySearchQuery.toLowerCase().trim()));
+    return matchesSection && matchesSearch;
+  });
+}, [availableCategories, selectedSectionFilter, categorySearchQuery]);
 
 // Step 3: Game Settings
 const [questionCount, setQuestionCount] = useState(10);
@@ -933,46 +959,122 @@ categorySelectingTeam === 1
 </div>
 </motion.div>
 
-{/* Categories Grid (with disabled state for categories chosen by the other team) */}
-<div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-{availableCategories.map((cat) => {
-const isChosenByTeam1 = team1Categories.includes(cat.id);
-const isChosenByTeam2 = team2Categories.includes(cat.id);
+{/* ================= SECTION TABS & SEARCH BAR ================= */}
+<div className="space-y-2.5 bg-slate-50/90 p-3.5 rounded-3xl border border-slate-200/80 shadow-xs">
+  <div className="flex flex-wrap items-center justify-between gap-2.5">
+    <div className="relative flex-1 min-w-[200px]">
+      <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+      <input
+        type="text"
+        placeholder="ابحث عن اسم فئة أو موضوع (مثال: ريال مدريد، كيمياء...)"
+        value={categorySearchQuery}
+        onChange={(e) => setCategorySearchQuery(e.target.value)}
+        className="w-full pr-10 pl-8 py-2 text-xs bg-white border border-slate-200 rounded-2xl focus:outline-none focus:border-purple-500 font-bold text-slate-800 shadow-xs"
+      />
+      {categorySearchQuery && (
+        <button
+          type="button"
+          onClick={() => setCategorySearchQuery('')}
+          className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      )}
+    </div>
 
-// If Team 1 is choosing:
-// - Disabled if Team 2 picked it
-// If Team 2 is choosing:
-// - Disabled if Team 1 picked it
-const isDisabled = categorySelectingTeam === 0
-? isChosenByTeam2
-: isChosenByTeam1;
+    <div className="text-[11px] font-black text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-200/70 shadow-xs">
+      المعروض: <span className="text-purple-700 font-black">{displayedCategories.length}</span> من {availableCategories.length} فئة
+    </div>
+  </div>
 
-const disabledMsg = isDisabled
-? categorySelectingTeam === 0
-? `اختارها ${teams[1]?.name || 'الخصم'}`
-: `اختارها ${teams[0]?.name || 'الفريق 1'}`
-: null;
-
-const isSelected = categorySelectingTeam === 0 ? isChosenByTeam1 : isChosenByTeam2;
-const selectionMsg = isSelected
-? categorySelectingTeam === 0
-? teams[0]?.name
-: teams[1]?.name
-: null;
-
-return (
-<CategoryCard
-key={cat.id}
-category={cat}
-isSelected={isSelected}
-disabled={isDisabled}
-disabledBadge={disabledMsg}
-selectionBadge={selectionMsg}
-onToggle={toggleCategory}
-/>
-);
-})}
+  {/* Horizontal Section Filter Pills */}
+  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 scrollbar-none">
+    {categorySections.map((sec) => {
+      const count = sec === 'الكل'
+        ? availableCategories.length
+        : availableCategories.filter((c) => (c.section || 'عام') === sec).length;
+      const isActive = selectedSectionFilter === sec;
+      return (
+        <button
+          key={sec}
+          type="button"
+          onClick={() => setSelectedSectionFilter(sec)}
+          className={`px-3 py-1.5 rounded-xl font-black text-xs shrink-0 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 ${
+            isActive
+              ? 'bg-purple-600 text-white shadow-purple-600/30'
+              : 'bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/80'
+          }`}
+        >
+          <span>{sec}</span>
+          <span
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              isActive ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500'
+            }`}
+          >
+            {count}
+          </span>
+        </button>
+      );
+    })}
+  </div>
 </div>
+
+{/* Categories Grid (with disabled state for categories chosen by the other team) */}
+{displayedCategories.length === 0 ? (
+  <div className="p-8 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200 text-slate-500 space-y-2">
+    <p className="text-sm font-bold">لا توجد فئات مطابقة للبحث أو القسم المحدد.</p>
+    <button
+      type="button"
+      onClick={() => {
+        setSelectedSectionFilter('الكل');
+        setCategorySearchQuery('');
+      }}
+      className="px-4 py-1.5 bg-purple-100 text-purple-700 rounded-xl text-xs font-black hover:bg-purple-200 transition"
+    >
+      عرض كافة الفئات
+    </button>
+  </div>
+) : (
+  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+    {displayedCategories.map((cat) => {
+      const isChosenByTeam1 = team1Categories.includes(cat.id);
+      const isChosenByTeam2 = team2Categories.includes(cat.id);
+
+      // If Team 1 is choosing:
+      // - Disabled if Team 2 picked it
+      // If Team 2 is choosing:
+      // - Disabled if Team 1 picked it
+      const isDisabled = categorySelectingTeam === 0
+        ? isChosenByTeam2
+        : isChosenByTeam1;
+
+      const disabledMsg = isDisabled
+        ? categorySelectingTeam === 0
+          ? `اختارها ${teams[1]?.name || 'الخصم'}`
+          : `اختارها ${teams[0]?.name || 'الفريق 1'}`
+        : null;
+
+      const isSelected = categorySelectingTeam === 0 ? isChosenByTeam1 : isChosenByTeam2;
+      const selectionMsg = isSelected
+        ? categorySelectingTeam === 0
+          ? teams[0]?.name
+          : teams[1]?.name
+        : null;
+
+      return (
+        <CategoryCard
+          key={cat.id}
+          category={cat}
+          isSelected={isSelected}
+          disabled={isDisabled}
+          disabledBadge={disabledMsg}
+          selectionBadge={selectionMsg}
+          onToggle={toggleCategory}
+        />
+      );
+    })}
+  </div>
+)}
 
 {/* Bottom Summary: Selected Categories Breakdown per Team */}
 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-slate-100">

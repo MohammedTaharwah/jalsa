@@ -41,7 +41,12 @@ def create_category(
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Category name already exists")
 
-    new_cat = Category(name=category_in.name, description=category_in.description)
+    new_cat = Category(
+        name=category_in.name.strip(),
+        section=(category_in.section or "عام").strip(),
+        description=category_in.description,
+        image_url=category_in.image_url
+    )
     db.add(new_cat)
     db.commit()
     db.refresh(new_cat)
@@ -61,13 +66,17 @@ def update_category(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
 
     if category_in.name and category_in.name != cat.name:
-        existing = db.query(Category).filter(Category.name == category_in.name).first()
+        existing = db.query(Category).filter(Category.name == category_in.name.strip()).first()
         if existing:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Category name already exists")
-        cat.name = category_in.name
+        cat.name = category_in.name.strip()
 
+    if category_in.section is not None:
+        cat.section = category_in.section.strip() or "عام"
     if category_in.description is not None:
         cat.description = category_in.description
+    if category_in.image_url is not None:
+        cat.image_url = category_in.image_url
 
     db.commit()
     db.refresh(cat)

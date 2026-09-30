@@ -106,6 +106,14 @@ export const CategoryCard = ({
         {/* Ambient Gradient Overlay (Smooth purple/orange/dark blend) */}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-purple-950/20 to-transparent pointer-events-none" />
 
+        {/* Section Badge (Top-left) */}
+        {category.section && category.section !== 'عام' && (
+          <div className="absolute top-2.5 left-2.5 z-10 px-2 py-0.5 rounded-lg bg-black/50 backdrop-blur-md border border-white/20 text-white text-[10px] font-black flex items-center gap-1 shadow-sm">
+            <span>🏷️</span>
+            <span>{category.section}</span>
+          </div>
+        )}
+
         {/* Disabled Badge (e.g. chosen by other team) */}
         {disabled && disabledBadge && (
           <div className="absolute top-2.5 right-2.5 z-10 px-2.5 py-1 rounded-xl bg-slate-900/85 backdrop-blur-md text-amber-300 text-[10px] font-black flex items-center gap-1 shadow-md border border-white/20">
@@ -138,6 +146,11 @@ export const CategoryCard = ({
       {/* ================= LOWER HALF: DETAILS & METADATA ================= */}
       <div className="p-3.5 flex flex-col justify-between flex-grow">
         <div>
+          {category.section && (
+            <span className="text-[10px] font-black text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md inline-block mb-1 border border-purple-100/80">
+              {category.section}
+            </span>
+          )}
           <h4 className="text-sm font-black text-slate-800 leading-snug group-hover:text-purple-700 transition-colors">
             {category.name}
           </h4>

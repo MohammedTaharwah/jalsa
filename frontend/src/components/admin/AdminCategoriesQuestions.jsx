@@ -16,9 +16,23 @@ import {
   Sparkles,
   Image as ImageIcon,
   Layers,
-  Upload
+  Upload,
+  Download
 } from 'lucide-react';
 import { authFetch, API_BASE } from '../../utils/api';
+
+const PREDEFINED_SECTIONS = [
+  'كرة القدم',
+  'رياضة ولياقة',
+  'أفلام وسينما',
+  'تاريخ وحضارات',
+  'علوم وفضاء',
+  'جغرافيا ودول',
+  'تكنولوجيا واختراعات',
+  'إسلاميات ودين',
+  'فنون وأدب',
+  'عام'
+];
 
 const getMediaUrl = (url) => {
   if (!url) return '';
@@ -41,6 +55,9 @@ export const AdminCategoriesQuestions = () => {
   const [questions, setQuestions] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Filters for Categories
+  const [selectedAdminCatSectionFilter, setSelectedAdminCatSectionFilter] = useState('الكل');
+
   // Filters for Questions
   const [selectedCatFilter, setSelectedCatFilter] = useState('');
   const [selectedPointsFilter, setSelectedPointsFilter] = useState('');
@@ -50,7 +67,7 @@ export const AdminCategoriesQuestions = () => {
   // Category Modal
   const [catModalOpen, setCatModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
-  const [catForm, setCatForm] = useState({ name: '', description: '', image_url: '' });
+  const [catForm, setCatForm] = useState({ name: '', section: 'كرة القدم', description: '', image_url: '' });
 
   // Question Modal
   const [qModalOpen, setQModalOpen] = useState(false);
@@ -197,6 +214,89 @@ export const AdminCategoriesQuestions = () => {
     }
   };
 
+  const downloadSampleQuestionsJson = () => {
+    const sampleData = {
+      questions: [
+        {
+          section: "كرة القدم",
+          category_name: "ريال مدريد",
+          question_text: "كم عدد بطولات دوري أبطال أوروبا التي حققها ريال مدريد حتى عام 2024؟",
+          options_json: ["15 بطولة", "14 بطولة", "12 بطولة", "10 بطولات"],
+          correct_answer: "15 بطولة",
+          points_level: 200,
+          media_url: null
+        },
+        {
+          section: "كرة القدم",
+          category_name: "برشلونة",
+          question_text: "من هو الهداف التاريخي لنادي برشلونة في كافة المسابقات؟",
+          options_json: ["ليونيل ميسي", "لويس سواريز", "سيزار رودريغيز", "رونالدينيو"],
+          correct_answer: "ليونيل ميسي",
+          points_level: 400,
+          media_url: null
+        },
+        {
+          section: "كرة القدم",
+          category_name: "كأس العالم",
+          question_text: "أي منتخب فاز بلقب كأس العالم 2022 في قطر؟",
+          options_json: ["الأرجنتين", "فرنسا", "كرواتيا", "البرازيل"],
+          correct_answer: "الأرجنتين",
+          points_level: 200,
+          media_url: null
+        },
+        {
+          section: "تاريخ وحضارات",
+          category_name: "الحضارة الإسلامية",
+          question_text: "في أي عام فُتحت القسطنطينية على يد السلطان محمد الفاتح؟",
+          options_json: ["1453م", "1492م", "1258م", "1517م"],
+          correct_answer: "1453م",
+          points_level: 600,
+          media_url: null
+        }
+      ]
+    };
+
+    const blob = new Blob([JSON.stringify(sampleData, null, 2)], { type: 'application/json;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'نموذج_اسئلة_جلسة_مع_الاقسام.json');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast('تم تحميل نموذج JSON التجريبي بنجاح ✓');
+  };
+
+  const categoriesBySection = React.useMemo(() => {
+    const groups = {};
+    categories.forEach((cat) => {
+      const sec = cat.section || 'عام';
+      if (!groups[sec]) groups[sec] = [];
+      groups[sec].push(cat);
+    });
+    return groups;
+  }, [categories]);
+
+  const uniqueAdminSections = React.useMemo(() => {
+    const set = new Set();
+    categories.forEach((cat) => {
+      if (cat.section && cat.section.trim()) {
+        set.add(cat.section.trim());
+      }
+    });
+    return ['الكل', ...Array.from(set)];
+  }, [categories]);
+
+  const filteredAdminCategories = React.useMemo(() => {
+    return categories.filter((cat) => {
+      if (selectedAdminCatSectionFilter && selectedAdminCatSectionFilter !== 'الكل') {
+        return (cat.section || 'عام') === selectedAdminCatSectionFilter;
+      }
+      return true;
+    });
+  }, [categories, selectedAdminCatSectionFilter]);
+
   // Fetch Categories
   const fetchCategories = async () => {
     setIsLoading(true);
@@ -273,7 +373,7 @@ export const AdminCategoriesQuestions = () => {
       }
       setCatModalOpen(false);
       setEditingCategory(null);
-      setCatForm({ name: '', description: '', image_url: '' });
+      setCatForm({ name: '', section: 'كرة القدم', description: '', image_url: '' });
       fetchCategories();
     } catch (err) {
       alert(err.message);
@@ -495,13 +595,16 @@ export const AdminCategoriesQuestions = () => {
 
       {/* ================= SECTION 1: CATEGORIES ================= */}
       {activeSubTab === 'categories' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-black text-slate-800">قائمة التصنيفات النشطة</h3>
+        <div className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-black text-slate-800">قائمة التصنيفات النشطة</h3>
+              <p className="text-xs text-slate-400 mt-0.5">يمكنك تقسيم الفئات إلى أقسام رئيسية مثل (كرة القدم، سينما، تاريخ...) لترتيب الاختيار والأسئلة.</p>
+            </div>
             <button
               onClick={() => {
                 setEditingCategory(null);
-                setCatForm({ name: '', description: '', image_url: '' });
+                setCatForm({ name: '', section: 'كرة القدم', description: '', image_url: '' });
                 setCatModalOpen(true);
               }}
               className="py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-2xl text-xs font-bold flex items-center gap-2 shadow-sm transition"
@@ -510,8 +613,38 @@ export const AdminCategoriesQuestions = () => {
             </button>
           </div>
 
+          {/* Section Filter Pills for Categories */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none bg-white p-2.5 rounded-2xl border border-slate-100 shadow-xs">
+            <span className="text-[11px] font-bold text-slate-400 pl-2 shrink-0">الأقسام:</span>
+            {uniqueAdminSections.map((sec) => {
+              const count = sec === 'الكل'
+                ? categories.length
+                : categories.filter((c) => (c.section || 'عام') === sec).length;
+              const isActive = selectedAdminCatSectionFilter === sec;
+              return (
+                <button
+                  key={sec}
+                  type="button"
+                  onClick={() => setSelectedAdminCatSectionFilter(sec)}
+                  className={`px-3 py-1.5 rounded-xl font-bold text-xs shrink-0 transition flex items-center gap-1.5 cursor-pointer ${
+                    isActive
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <span>{sec}</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                    isActive ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {categories.map((cat) => (
+            {filteredAdminCategories.map((cat) => (
               <motion.div
                 key={cat.id}
                 whileHover={{ y: -3 }}
@@ -526,9 +659,14 @@ export const AdminCategoriesQuestions = () => {
                         '🎯'
                       )}
                     </div>
-                    <span className="px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-xs font-black border border-purple-100">
-                      {cat.questions_count || 0} سؤال
-                    </span>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <span className="px-2.5 py-0.5 bg-purple-50 text-purple-700 rounded-full text-[11px] font-black border border-purple-100">
+                        {cat.questions_count || 0} سؤال
+                      </span>
+                      <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold">
+                        📁 {cat.section || 'عام'}
+                      </span>
+                    </div>
                   </div>
 
                   <h4 className="text-lg font-black text-slate-900 mt-4">{cat.name}</h4>
@@ -543,6 +681,7 @@ export const AdminCategoriesQuestions = () => {
                       setEditingCategory(cat);
                       setCatForm({
                         name: cat.name,
+                        section: cat.section || 'عام',
                         description: cat.description || '',
                         image_url: cat.image_url || ''
                       });
@@ -583,17 +722,21 @@ export const AdminCategoriesQuestions = () => {
               />
             </div>
 
-            {/* Category Filter */}
+            {/* Category Filter Grouped by Section */}
             <select
               value={selectedCatFilter}
               onChange={(e) => setSelectedCatFilter(e.target.value)}
               className="py-2 px-3 text-xs bg-slate-50 border border-slate-200 rounded-2xl text-slate-700 font-bold focus:outline-none focus:border-purple-500"
             >
               <option value="">كافة الفئات</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
+              {Object.entries(categoriesBySection).map(([section, cats]) => (
+                <optgroup key={section} label={`📁 قسم: ${section}`}>
+                  {cats.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
 
@@ -654,6 +797,15 @@ export const AdminCategoriesQuestions = () => {
                 disabled={isImporting}
               />
             </label>
+
+            <button
+              type="button"
+              onClick={downloadSampleQuestionsJson}
+              className="py-2 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
+              title="تحميل ملف JSON نموذجي جاهز للتعبئة والاستيراد مع الأقسام"
+            >
+              <Download className="w-4 h-4 text-purple-600" /> نموذج JSON
+            </button>
 
             <button
               type="button"
@@ -811,11 +963,43 @@ export const AdminCategoriesQuestions = () => {
                   <input
                     type="text"
                     required
-                    placeholder="مثال: تاريخ وإمبراطوريات"
+                    placeholder="مثال: ريال مدريد، دوري الأبطال، إمبراطوريات..."
                     value={catForm.name}
                     onChange={(e) => setCatForm({ ...catForm, name: e.target.value })}
-                    className="w-full py-2.5 px-3 text-xs bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-purple-500"
+                    className="w-full py-2.5 px-3 text-xs bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-purple-500 font-bold"
                   />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-600">القسم الرئيسي (المجال التابع له)</label>
+                    <span className="text-[10px] text-purple-600 font-bold">لترتيب الفئات ومنع التشتت</span>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    placeholder="مثال: كرة القدم، أفلام وسينما، تاريخ..."
+                    value={catForm.section || ''}
+                    onChange={(e) => setCatForm({ ...catForm, section: e.target.value })}
+                    className="w-full py-2.5 px-3 text-xs bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-purple-500 font-bold"
+                  />
+                  {/* Predefined section suggestions pills */}
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {PREDEFINED_SECTIONS.map((sec) => (
+                      <button
+                        key={sec}
+                        type="button"
+                        onClick={() => setCatForm({ ...catForm, section: sec })}
+                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition ${
+                          catForm.section === sec
+                            ? 'bg-purple-600 text-white border-purple-600'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200'
+                        }`}
+                      >
+                        {sec}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div>
@@ -926,10 +1110,14 @@ export const AdminCategoriesQuestions = () => {
                       className="w-full py-2.5 px-3 text-xs bg-slate-50 border border-slate-200 rounded-2xl font-bold focus:outline-none focus:border-purple-500"
                       required
                     >
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
+                      {Object.entries(categoriesBySection).map(([section, cats]) => (
+                        <optgroup key={section} label={`📁 قسم: ${section}`}>
+                          {cats.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </optgroup>
                       ))}
                     </select>
                   </div>
