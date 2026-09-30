@@ -75,6 +75,47 @@ export const AdminCategoriesQuestions = () => {
   const fileInputRef = React.useRef(null);
   const catFileInputRef = React.useRef(null);
 
+  const compressImage = (file) => {
+    return new Promise((resolve) => {
+      if (!file.type || !file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1200;
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          resolve(dataUrl);
+        };
+        img.onerror = () => resolve(event.target.result);
+        img.src = event.target.result;
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+  };
+
   const uploadFile = async (file) => {
     if (!file) return null;
     setIsUploading(true);
@@ -89,53 +130,42 @@ export const AdminCategoriesQuestions = () => {
         const data = await res.json();
         return data.url;
       }
-      // If server upload returned error, fallback to Base64
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.readAsDataURL(file);
-      });
+      return await compressImage(file);
     } catch (e) {
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.readAsDataURL(file);
-      });
+      return await compressImage(file);
     } finally {
       setIsUploading(false);
     }
   };
 
-  const handleQuestionFileUpload = async (e) => {
-    const file = e.target.files?.[0];
+  const handleDirectFile = async (file, target = 'question') => {
     if (!file) return;
     try {
       const url = await uploadFile(file);
       if (url) {
-        setQForm((prev) => ({ ...prev, media_url: url }));
-        showToast('تم تحميل الوسائط بنجاح ✓');
+        if (target === 'question') {
+          setQForm((prev) => ({ ...prev, media_url: url }));
+          showToast('تم إرفاق الصورة بالسؤال بنجاح ✓');
+        } else {
+          setCatForm((prev) => ({ ...prev, image_url: url }));
+          showToast('تم إرفاق صورة الفئة بنجاح ✓');
+        }
       }
     } catch (err) {
       showToast('تعذر رفع الملف');
-    } finally {
-      e.target.value = '';
     }
   };
 
-  const handleCategoryFileUpload = async (e) => {
+  const handleQuestionFileUpload = (e) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const url = await uploadFile(file);
-      if (url) {
-        setCatForm((prev) => ({ ...prev, image_url: url }));
-        showToast('تم تحميل صورة الفئة بنجاح ✓');
-      }
-    } catch (err) {
-      showToast('تعذر رفع الصورة');
-    } finally {
-      e.target.value = '';
-    }
+    if (file) handleDirectFile(file, 'question');
+    e.target.value = '';
+  };
+
+  const handleCategoryFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (file) handleDirectFile(file, 'category');
+    e.target.value = '';
   };
 
   const showToast = (msg) => {
@@ -300,14 +330,20 @@ export const AdminCategoriesQuestions = () => {
           method: 'PUT',
           body: JSON.stringify(payload)
         });
-        if (!res.ok) throw new Error('فشل تحديث السؤال');
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || 'فشل تحديث السؤال');
+        }
         showToast('تم تحديث السؤال بنجاح! ✨');
       } else {
         const res = await authFetch('/api/admin/questions', {
           method: 'POST',
           body: JSON.stringify(payload)
         });
-        if (!res.ok) throw new Error('فشل إضافة السؤال');
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || 'فشل إضافة السؤال');
+        }
         showToast('تمت إضافة السؤال لبنك الأسئلة بنجاح! 🎉');
       }
 
@@ -807,24 +843,19 @@ export const AdminCategoriesQuestions = () => {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <input
-                      type="file"
-                      ref={catFileInputRef}
-                      onChange={handleCategoryFileUpload}
-                      accept="image/*"
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => catFileInputRef.current?.click()}
-                      disabled={isUploading}
-                      className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition cursor-pointer disabled:opacity-50"
-                    >
+                    <label className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition cursor-pointer select-none">
                       <Upload className="w-3.5 h-3.5" />
-                      {isUploading ? 'جاري الرفع...' : 'رفع صورة 📁'}
-                    </button>
+                      <span>{isUploading ? 'جاري الرفع...' : 'رفع صورة 📁'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleCategoryFileUpload}
+                        disabled={isUploading}
+                        className="sr-only"
+                      />
+                    </label>
                     <input
-                      type="url"
+                      type="text"
                       placeholder="أو ضع رابط صورة مباشر..."
                       value={catForm.image_url}
                       onChange={(e) => setCatForm({ ...catForm, image_url: e.target.value })}
@@ -979,35 +1010,56 @@ export const AdminCategoriesQuestions = () => {
                     )}
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleQuestionFileUpload}
-                        accept="image/*,audio/*"
-                        className="hidden"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={isUploading}
-                        className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-2xl text-xs font-bold flex items-center gap-2 shadow-sm transition disabled:opacity-50 shrink-0 cursor-pointer"
-                      >
-                        <Upload className="w-3.5 h-3.5" />
-                        {isUploading ? 'جاري الرفع...' : 'رفع من جهازك 📁'}
-                      </button>
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) handleDirectFile(file, 'question');
+                    }}
+                    onPaste={(e) => {
+                      const items = e.clipboardData?.items;
+                      if (items) {
+                        for (let i = 0; i < items.length; i++) {
+                          if (items[i].type && items[i].type.startsWith('image/')) {
+                            const file = items[i].getAsFile();
+                            if (file) {
+                              handleDirectFile(file, 'question');
+                              break;
+                            }
+                          }
+                        }
+                      }
+                    }}
+                    className="space-y-2 p-3 bg-slate-50/80 rounded-2xl border border-dashed border-slate-300 hover:border-purple-400 transition"
+                  >
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                      <label className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition cursor-pointer select-none shrink-0 disabled:opacity-50">
+                        <Upload className="w-4 h-4" />
+                        <span>{isUploading ? 'جاري التحميل...' : 'اختر صورة من جهازك 📁'}</span>
+                        <input
+                          type="file"
+                          accept="image/*,audio/*"
+                          onChange={handleQuestionFileUpload}
+                          disabled={isUploading}
+                          className="sr-only"
+                        />
+                      </label>
 
                       <div className="relative flex-1">
                         <input
                           type="text"
-                          placeholder="أو الصق رابط صورة / صوت مباشر هنا..."
+                          placeholder="أو الصق رابط صورة / صوت مباشر هنا (أو الصق صورة مباشرة Ctrl+V)..."
                           value={qForm.media_url || ''}
                           onChange={(e) => setQForm({ ...qForm, media_url: e.target.value })}
-                          className="w-full py-2.5 px-3 text-xs bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-purple-500 font-medium"
+                          className="w-full py-2.5 px-3 text-xs bg-white border border-slate-200 rounded-2xl focus:outline-none focus:border-purple-500 font-medium"
                           dir="ltr"
                         />
                       </div>
+                    </div>
+
+                    <div className="text-[10px] text-slate-400 flex items-center justify-between px-1">
+                      <span>💡 يمكنك الضغط لاختيار صورة، أو سحبها وإفلاتها هنا، أو لصق صورة من الحافظة (Ctrl+V)</span>
                     </div>
 
                     {qForm.media_url && (
@@ -1035,13 +1087,21 @@ export const AdminCategoriesQuestions = () => {
                             {isAudioUrl(qForm.media_url) ? '🎵 ملف صوتي مرفق' : '🖼️ صورة مرفقة بالسؤال'}
                           </p>
                           <p className="text-[10px] text-slate-400 truncate font-mono" dir="ltr">
-                            {qForm.media_url}
+                            {qForm.media_url.startsWith('data:') ? 'صورة مرفوعة ومحفوظة بنجاح' : qForm.media_url}
                           </p>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => setQForm({ ...qForm, media_url: '' })}
+                          className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-xs font-bold transition cursor-pointer"
+                          title="إزالة الصورة"
+                        >
+                          ✕
+                        </button>
                       </div>
                     )}
 
-                    <span className="text-[10px] text-slate-400 block">
+                    <span className="text-[10px] text-slate-400 block px-1">
                       يدعم رفع صور (JPG, PNG, WebP, GIF) ومقاطع صوتية (MP3, WAV, OGG) حتى 10 ميجابايت، أو روابط الويب المباشرة.
                     </span>
                   </div>

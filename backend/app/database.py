@@ -55,9 +55,23 @@ def init_db():
         with engine.connect() as conn:
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;"))
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_code VARCHAR(6);"))
-            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_expires_at TIMESTAMP WITH TIME ZONE;"))
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS games_balance INTEGER DEFAULT 1;"))
-            
+
+            # Ensure questions.media_url and categories.image_url exist as TEXT
+            try:
+                conn.execute(text("ALTER TABLE questions ADD COLUMN IF NOT EXISTS media_url TEXT;"))
+                conn.execute(text("ALTER TABLE questions ALTER COLUMN media_url TYPE TEXT;"))
+            except Exception as e:
+                logger.warning(f"Could not migrate questions.media_url column: {e}")
+
+            try:
+                conn.execute(text("ALTER TABLE categories ADD COLUMN IF NOT EXISTS image_url TEXT;"))
+                conn.execute(text("ALTER TABLE categories ALTER COLUMN image_url TYPE TEXT;"))
+            except Exception as e:
+                logger.warning(f"Could not migrate categories.image_url column: {e}")
+
+            conn.commit()
+
             # Enable Row Level Security (RLS) on all tables to satisfy Supabase security checks
             rls_tables = [
                 "categories",
