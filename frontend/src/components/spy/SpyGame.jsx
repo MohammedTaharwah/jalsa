@@ -283,6 +283,7 @@ export const SpyGame = ({ onExit }) => {
 
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [balanceAlert, setBalanceAlert] = useState(null);
+  const [toastMsg, setToastMsg] = useState(null);
   const [isConsuming, setIsConsuming] = useState(false);
   const [remainingRoundsInPack, setRemainingRoundsInPack] = useState(() => {
     try {
@@ -298,6 +299,13 @@ export const SpyGame = ({ onExit }) => {
       return 0;
     }
   });
+
+  const totalAvailableSpyRounds = remainingRoundsInPack + (availableGames * ROUNDS_PER_GAME_CREDIT);
+
+  const showToast = (msg) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3500);
+  };
 
   // Phases: 'setup' -> 'categories' -> 'reveal' -> 'discussion' -> 'voting' -> 'spy_guess' -> 'result'
   // Auto-normalize legacy 'vote' phase into 'voting'
@@ -582,18 +590,34 @@ export const SpyGame = ({ onExit }) => {
         try {
           localStorage.setItem(SPY_ROUNDS_REMAINING_KEY, String(newRemaining));
         } catch (e) {}
+        showToast('بدأت باقة جديدة: الجولة 1 من 5 (متبقي 4 جولات مجانية) 🎯');
       } catch (err) {
         console.error('Failed to consume game session:', err);
+        // Fallback for offline / network / dev environment so rounds always advance
+        const updatedBalance = Math.max(0, availableGames - 1);
+        setAvailableGames(updatedBalance);
+        const newRemaining = ROUNDS_PER_GAME_CREDIT - 1;
+        setRemainingRoundsInPack(newRemaining);
+        try {
+          localStorage.setItem(SPY_ROUNDS_REMAINING_KEY, String(newRemaining));
+        } catch (e) {}
+        showToast('بدأت باقة جديدة: الجولة 1 من 5 (متبقي 4 جولات مجانية) 🎯');
       } finally {
         setIsConsuming(false);
       }
     } else {
       // Consume 1 round from the active 5-round pack (no balance deduction)
+      const currentRoundInPack = ROUNDS_PER_GAME_CREDIT - remainingRoundsInPack + 1;
       const newRemaining = remainingRoundsInPack - 1;
       setRemainingRoundsInPack(newRemaining);
       try {
         localStorage.setItem(SPY_ROUNDS_REMAINING_KEY, String(newRemaining));
       } catch (e) {}
+      if (newRemaining > 0) {
+        showToast(`بدأت الجولة ${currentRoundInPack} من 5 (متبقي ${newRemaining} جولات في باقتك) 🎯`);
+      } else {
+        showToast(`بدأت الجولة ${currentRoundInPack} من 5 (الجولة الأخيرة في هذه الباقة) 🎯`);
+      }
     }
 
     // 3. Clean player names
@@ -781,25 +805,23 @@ export const SpyGame = ({ onExit }) => {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Games Balance Badge */}
-          <div className="px-3 py-1.5 rounded-xl bg-slate-800/90 border border-slate-700 flex items-center gap-1.5 text-xs font-bold text-slate-200">
-            <Gift className="w-3.5 h-3.5 text-orange-400 animate-pulse" />
-            <span className="hidden sm:inline">رصيد الألعاب:</span>
-            <span className="px-1.5 py-0.5 rounded-md bg-orange-500/20 text-orange-400 font-black">
-              {availableGames}
-            </span>
-          </div>
-
-          {/* Active Spy Pack Rounds Badge */}
+          {/* Total Spy Rounds Balance Badge */}
           <div
-            className="px-3 py-1.5 rounded-xl bg-purple-950/60 border border-purple-800/80 flex items-center gap-1.5 text-xs font-bold text-purple-200"
-            title="كل 1 لعبة تمنحك 5 جولات كاملة في لعبة مين الدسوس"
+            className="px-3 py-1.5 rounded-xl bg-slate-800/90 border border-slate-700 flex items-center gap-2 text-xs font-bold text-slate-200 shadow-xs"
+            title="إجمالي الجولات المتاحة للعب في مين الدسوس (كل 1 لعبة = 5 جولات)"
           >
-            <span className="text-purple-400">🕵️</span>
-            <span className="hidden sm:inline">جولات الجاسوس:</span>
-            <span className="px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 font-black">
-              {remainingRoundsInPack > 0 ? `${remainingRoundsInPack} متبقية من 5` : '1 لعبة = 5 جولات'}
-            </span>
+            <span className="text-amber-400 text-sm">🕵️</span>
+            <div className="flex items-center gap-1.5">
+              <span className="hidden sm:inline">جولات الجاسوس المتاحة:</span>
+              <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-400 font-black text-sm">
+                {totalAvailableSpyRounds}
+              </span>
+            </div>
+            {remainingRoundsInPack > 0 && (
+              <span className="text-[10px] text-purple-300 bg-purple-950/80 px-2 py-0.5 rounded-md border border-purple-800/60 hidden md:inline">
+                ({remainingRoundsInPack} متبقية في الباقة)
+              </span>
+            )}
           </div>
 
           <button
@@ -823,6 +845,20 @@ export const SpyGame = ({ onExit }) => {
           )}
         </div>
       </header>
+
+      {/* Floating Toast Notification */}
+      <AnimatePresence>
+        {toastMsg && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-5 py-2.5 rounded-2xl bg-amber-500 text-slate-950 font-black text-xs sm:text-sm shadow-xl flex items-center gap-2 border border-amber-400 select-none pointer-events-none"
+          >
+            <span>{toastMsg}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main Container */}
       <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 max-w-5xl mx-auto w-full">
