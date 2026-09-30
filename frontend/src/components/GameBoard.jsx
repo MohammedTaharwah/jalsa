@@ -862,10 +862,13 @@ className={`px-4 py-2 rounded-2xl font-black text-xs sm:text-sm flex items-cente
 type="button"
 onClick={swapActiveQuestion}
 className="px-4 py-2 rounded-2xl font-black text-xs sm:text-sm flex items-center gap-2 border border-purple-300 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md shadow-purple-500/20 active:scale-95 cursor-pointer transition-all"
-title="استبدال السؤال الحالي بسؤال بديل من نفس المستوى"
+title="استبدال السؤال الحالي بسؤال بديل من نفس المستوى (مجاناً)"
 >
 <RefreshCw className="w-4 h-4 text-purple-200" />
 <span>تغيير السؤال 🔄</span>
+<span className="px-2 py-0.5 rounded-full bg-black/20 text-purple-100 text-[10px] font-extrabold mr-1">
+مجاناً
+</span>
 </button>
 </div>
 )}
