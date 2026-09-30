@@ -18,7 +18,20 @@ import {
   Layers,
   Upload
 } from 'lucide-react';
-import { authFetch } from '../../utils/api';
+import { authFetch, API_BASE } from '../../utils/api';
+
+const getMediaUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url;
+  }
+  return `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
+const isAudioUrl = (url) => {
+  if (!url) return false;
+  return /\.(mp3|wav|ogg)($|\?)/i.test(url) || url.startsWith('data:audio');
+};
 
 export const AdminCategoriesQuestions = () => {
   const [activeSubTab, setActiveSubTab] = useState('categories'); // 'categories' | 'questions'
@@ -51,11 +64,79 @@ export const AdminCategoriesQuestions = () => {
     option4: '',
     correct_option_index: 0,
     points_level: 200,
+    media_url: '',
     status: 'approved'
   });
 
   const [toastMsg, setToastMsg] = useState(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const fileInputRef = React.useRef(null);
+  const catFileInputRef = React.useRef(null);
+
+  const uploadFile = async (file) => {
+    if (!file) return null;
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await authFetch('/api/admin/upload-media', {
+        method: 'POST',
+        body: formData
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.url;
+      }
+      // If server upload returned error, fallback to Base64
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+      });
+    } catch (e) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleQuestionFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const url = await uploadFile(file);
+      if (url) {
+        setQForm((prev) => ({ ...prev, media_url: url }));
+        showToast('تم تحميل الوسائط بنجاح ✓');
+      }
+    } catch (err) {
+      showToast('تعذر رفع الملف');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const handleCategoryFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const url = await uploadFile(file);
+      if (url) {
+        setCatForm((prev) => ({ ...prev, image_url: url }));
+        showToast('تم تحميل صورة الفئة بنجاح ✓');
+      }
+    } catch (err) {
+      showToast('تعذر رفع الصورة');
+    } finally {
+      e.target.value = '';
+    }
+  };
 
   const showToast = (msg) => {
     setToastMsg(msg);
@@ -402,9 +483,9 @@ export const AdminCategoriesQuestions = () => {
               >
                 <div>
                   <div className="flex items-start justify-between">
-                    <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl font-bold">
+                    <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl font-bold overflow-hidden shrink-0">
                       {cat.image_url ? (
-                        <img src={cat.image_url} alt={cat.name} className="w-full h-full object-cover rounded-2xl" />
+                        <img src={getMediaUrl(cat.image_url)} alt={cat.name} className="w-full h-full object-cover rounded-2xl" />
                       ) : (
                         '🎯'
                       )}
@@ -589,7 +670,16 @@ export const AdminCategoriesQuestions = () => {
                     filteredQuestions.map((q) => (
                       <tr key={q.id} className="hover:bg-purple-50/30 transition">
                         <td className="py-3.5 px-4 font-mono font-bold text-slate-400">{q.id}</td>
-                        <td className="py-3.5 px-4 font-bold text-slate-900 max-w-xs">{q.question_text}</td>
+                        <td className="py-3.5 px-4 font-bold text-slate-900 max-w-xs">
+                          <div className="flex items-center gap-2">
+                            <span>{q.question_text}</span>
+                            {q.media_url && (
+                              <span className="px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 text-[10px] font-bold shrink-0 flex items-center gap-1" title="سؤال يحتوي على وسائط">
+                                {isAudioUrl(q.media_url) ? '🔊 صوت' : '📷 صورة'}
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="py-3.5 px-4 text-slate-600 font-bold">{getCategoryName(q.category_id)}</td>
                         <td className="py-3.5 px-4">
                           <span className={`px-2.5 py-1 rounded-xl text-[11px] font-black inline-block ${
@@ -704,14 +794,55 @@ export const AdminCategoriesQuestions = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">رابط الصورة / الأيقونة (اختياري)</label>
-                  <input
-                    type="url"
-                    placeholder="https://..."
-                    value={catForm.image_url}
-                    onChange={(e) => setCatForm({ ...catForm, image_url: e.target.value })}
-                    className="w-full py-2.5 px-3 text-xs bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-purple-500"
-                  />
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-600">أيقونة أو صورة الفئة (اختياري)</label>
+                    {catForm.image_url && (
+                      <button
+                        type="button"
+                        onClick={() => setCatForm({ ...catForm, image_url: '' })}
+                        className="text-[11px] text-red-500 hover:text-red-700 font-bold"
+                      >
+                        إزالة الصورة
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      ref={catFileInputRef}
+                      onChange={handleCategoryFileUpload}
+                      accept="image/*"
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => catFileInputRef.current?.click()}
+                      disabled={isUploading}
+                      className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition cursor-pointer disabled:opacity-50"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      {isUploading ? 'جاري الرفع...' : 'رفع صورة 📁'}
+                    </button>
+                    <input
+                      type="url"
+                      placeholder="أو ضع رابط صورة مباشر..."
+                      value={catForm.image_url}
+                      onChange={(e) => setCatForm({ ...catForm, image_url: e.target.value })}
+                      className="flex-1 py-2 px-3 text-xs bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-purple-500"
+                      dir="ltr"
+                    />
+                  </div>
+                  {catForm.image_url && (
+                    <div className="mt-2 flex items-center gap-2 p-2 bg-slate-50 rounded-xl border border-slate-200">
+                      <img
+                        src={getMediaUrl(catForm.image_url)}
+                        alt="معاينة"
+                        className="w-10 h-10 rounded-xl object-cover border border-slate-300"
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                      <span className="text-[11px] text-emerald-600 font-bold">تم اختيار صورة للفئة ✓</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-3 pt-3">
@@ -831,20 +962,89 @@ export const AdminCategoriesQuestions = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">
-                    رابط وسائط السؤال (اختياري: صورة أو مقطع صوتي)
-                  </label>
-                  <input
-                    type="url"
-                    placeholder="https://example.com/image.jpg أو .mp3"
-                    value={qForm.media_url || ''}
-                    onChange={(e) => setQForm({ ...qForm, media_url: e.target.value })}
-                    className="w-full py-2 px-3 text-xs bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-purple-500 font-medium"
-                    dir="ltr"
-                  />
-                  <span className="text-[10px] text-slate-400 mt-1 block">
-                    يدعم صور JPG / PNG / WebP ومقاطع MP3 / WAV / OGG
-                  </span>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <ImageIcon className="w-4 h-4 text-purple-600" />
+                      <span>وسائط السؤال (صورة توضيحية أو مقطع صوتي)</span>
+                    </label>
+                    {qForm.media_url && (
+                      <button
+                        type="button"
+                        onClick={() => setQForm({ ...qForm, media_url: '' })}
+                        className="text-[11px] text-red-500 hover:text-red-700 font-bold flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        إزالة الوسائط
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleQuestionFileUpload}
+                        accept="image/*,audio/*"
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-2xl text-xs font-bold flex items-center gap-2 shadow-sm transition disabled:opacity-50 shrink-0 cursor-pointer"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        {isUploading ? 'جاري الرفع...' : 'رفع من جهازك 📁'}
+                      </button>
+
+                      <div className="relative flex-1">
+                        <input
+                          type="text"
+                          placeholder="أو الصق رابط صورة / صوت مباشر هنا..."
+                          value={qForm.media_url || ''}
+                          onChange={(e) => setQForm({ ...qForm, media_url: e.target.value })}
+                          className="w-full py-2.5 px-3 text-xs bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-purple-500 font-medium"
+                          dir="ltr"
+                        />
+                      </div>
+                    </div>
+
+                    {qForm.media_url && (
+                      <div className="mt-2 p-3 bg-purple-50/50 border border-purple-100 rounded-2xl flex items-center gap-3">
+                        {isAudioUrl(qForm.media_url) ? (
+                          <div className="flex-1">
+                            <audio controls className="w-full h-8" src={getMediaUrl(qForm.media_url)}>
+                              متصفحك لا يدعم تشغيل الصوت
+                            </audio>
+                          </div>
+                        ) : (
+                          <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-purple-200 bg-white shrink-0 shadow-xs">
+                            <img
+                              src={getMediaUrl(qForm.media_url)}
+                              alt="معاينة صورة السؤال"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.src = 'https://via.placeholder.com/150?text=Error';
+                              }}
+                            />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0 text-right">
+                          <p className="text-xs font-bold text-slate-800 truncate">
+                            {isAudioUrl(qForm.media_url) ? '🎵 ملف صوتي مرفق' : '🖼️ صورة مرفقة بالسؤال'}
+                          </p>
+                          <p className="text-[10px] text-slate-400 truncate font-mono" dir="ltr">
+                            {qForm.media_url}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <span className="text-[10px] text-slate-400 block">
+                      يدعم رفع صور (JPG, PNG, WebP, GIF) ومقاطع صوتية (MP3, WAV, OGG) حتى 10 ميجابايت، أو روابط الويب المباشرة.
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-3 pt-3">

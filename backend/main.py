@@ -101,6 +101,14 @@ app.include_router(payment_router)
 app.include_router(spy_router)
 app.include_router(social_router)
 
+# Mount static uploads directory for images and audio files
+import os
+from fastapi.staticfiles import StaticFiles
+
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
 
 # -------------------------------------------------------------
 # WebSocket Manager for Multiplayer Q&A Sessions

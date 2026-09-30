@@ -29,8 +29,17 @@ import { useGameStore } from '../store/useGameStore';
 import { FortuneWheelModal } from './FortuneWheelModal';
 import { SocialFooter } from './SocialFooter';
 import { CATEGORIES_DATA, POWERUPS_CATALOG } from '../data/categoriesData';
+import { API_BASE } from '../utils/api';
 
 const OPTION_LETTERS = ['أ', 'ب', 'ج', 'د'];
+
+const getMediaUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url;
+  }
+  return `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
+};
 
 export const GameBoard = () => {
 const {
@@ -791,14 +800,14 @@ timeLeft <= (reboundState.isActive ? 3 : 5) ? 'text-rose-600 animate-pulse' : 't
           <Volume2 className="w-4 h-4 animate-bounce" />
           <span>استمع للمقطع الصوتي للتعرف على الإجابة 🎧</span>
         </div>
-        <audio controls className="w-full h-10 rounded-xl" src={activeQuestion.media_url}>
+        <audio controls className="w-full h-10 rounded-xl" src={getMediaUrl(activeQuestion.media_url)}>
           متصفحك لا يدعم مشغل الصوت
         </audio>
       </div>
     ) : (
       <div className="relative max-w-sm rounded-2xl overflow-hidden border border-slate-200 shadow-md group">
         <img
-          src={activeQuestion.media_url}
+          src={getMediaUrl(activeQuestion.media_url)}
           alt="صورة السؤال"
           className="w-full max-h-48 sm:max-h-56 object-cover rounded-2xl transition-transform duration-300 group-hover:scale-105"
           onError={(e) => { e.currentTarget.style.display = 'none'; }}

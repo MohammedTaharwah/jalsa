@@ -1,3 +1,5 @@
+import os
+import uuid
 import logging
 import json
 import random
@@ -756,3 +758,43 @@ def create_economy_powerup(
     db.commit()
     db.refresh(new_p)
     return new_p
+
+
+@router.post("/upload-media")
+async def upload_media_file(
+    file: UploadFile = File(...),
+    admin_user: User = Depends(require_admin)
+):
+    """رفع صورة أو مقطع صوتي لسؤال من لوحة التحكم وحفظه بالسيرفر."""
+    filename = file.filename or "media"
+    ext = os.path.splitext(filename)[1].lower()
+    allowed_exts = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp3", ".wav", ".ogg"}
+    if ext not in allowed_exts:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"نوع الملف غير مدعوم ({ext}). الصيغ المدعومة هي: {', '.join(allowed_exts)}"
+        )
+
+    content = await file.read()
+    max_size = 10 * 1024 * 1024  # 10 MB
+    if len(content) > max_size:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="حجم الملف كبير جداً. الحد الأقصى هو 10 ميجابايت."
+        )
+
+    # Save into uploads directory
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+
+    unique_filename = f"{uuid.uuid4().hex}{ext}"
+    target_path = os.path.join(upload_dir, unique_filename)
+
+    with open(target_path, "wb") as f:
+        f.write(content)
+
+    return {
+        "url": f"/uploads/{unique_filename}",
+        "filename": unique_filename,
+        "message": "تم رفع الملف بنجاح"
+    }
