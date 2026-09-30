@@ -133,6 +133,8 @@ const DEFAULT_FALLBACK_CATEGORIES = [
 
 const SPY_GAME_SESSION_KEY = 'jalsah_spy_game_session';
 const SPY_PLAYER_SCORES_KEY = 'jalsah_spy_player_scores';
+const SPY_ROUNDS_REMAINING_KEY = 'jalsah_spy_rounds_remaining';
+const ROUNDS_PER_GAME_CREDIT = 5;
 
 const loadSavedSpySession = () => {
   try {
@@ -282,6 +284,20 @@ export const SpyGame = ({ onExit }) => {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [balanceAlert, setBalanceAlert] = useState(null);
   const [isConsuming, setIsConsuming] = useState(false);
+  const [remainingRoundsInPack, setRemainingRoundsInPack] = useState(() => {
+    try {
+      const saved = localStorage.getItem(SPY_ROUNDS_REMAINING_KEY);
+      if (saved !== null) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed >= 0 && parsed <= ROUNDS_PER_GAME_CREDIT) {
+          return parsed;
+        }
+      }
+      return 0;
+    } catch (e) {
+      return 0;
+    }
+  });
 
   // Phases: 'setup' -> 'categories' -> 'reveal' -> 'discussion' -> 'voting' -> 'spy_guess' -> 'result'
   // Auto-normalize legacy 'vote' phase into 'voting'
@@ -519,48 +535,65 @@ export const SpyGame = ({ onExit }) => {
     onExit?.();
   };
 
-  // Start the secret round (deducts 1 game session)
+  // Start the secret round (deducts 1 game session per 5 rounds)
   const startSecretRound = async () => {
     if (isConsuming) return;
 
-    // 1. Strictly verify games balance
-    if (availableGames <= 0) {
-      setBalanceAlert('نفد رصيدك من الألعاب! يرجى شحن رصيدك عبر باقات الألعاب لتتمكن من بدء جولة جديدة في لعبة مين الدسوس.');
-      return;
-    }
-
-    setIsConsuming(true);
-    setBalanceAlert(null);
-
-    try {
-      // 2. Atomically consume 1 game on backend
-      const token = getAuthToken();
-      const consumeRes = await fetch(`${API_BASE}/promo/consume-game`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({ user_id: currentUser?.id })
-      });
-
-      if (!consumeRes.ok) {
-        const errorData = await consumeRes.json().catch(() => ({}));
-        setBalanceAlert(errorData.detail || 'نفد رصيدك من الألعاب! يرجى شحن رصيدك لتتمكن من خوض جولة جديدة.');
-        setAvailableGames(0);
-        setIsConsuming(false);
+    // Check if we need to consume 1 game credit from balance for a new 5-round pack
+    if (remainingRoundsInPack <= 0) {
+      // 1. Strictly verify games balance
+      if (availableGames <= 0) {
+        setBalanceAlert('نفد رصيدك من الألعاب! كل 1 لعبة في رصيدك تمنحك باقة كاملة من 5 جولات في لعبة مين الدسوس. يرجى شحن رصيدك عبر باقات الألعاب للمتابعة والاستمتاع بالجولات.');
         return;
       }
 
-      const consumeData = await consumeRes.json();
-      const updatedBalance = typeof consumeData.remaining_games === 'number'
-        ? consumeData.remaining_games
-        : Math.max(0, availableGames - 1);
-      setAvailableGames(updatedBalance);
-    } catch (err) {
-      console.error('Failed to consume game session:', err);
-    } finally {
-      setIsConsuming(false);
+      setIsConsuming(true);
+      setBalanceAlert(null);
+
+      try {
+        // 2. Atomically consume 1 game on backend
+        const token = getAuthToken();
+        const consumeRes = await fetch(`${API_BASE}/promo/consume-game`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ user_id: currentUser?.id })
+        });
+
+        if (!consumeRes.ok) {
+          const errorData = await consumeRes.json().catch(() => ({}));
+          setBalanceAlert(errorData.detail || 'نفد رصيدك من الألعاب! يرجى شحن رصيدك لتتمكن من خوض جولة جديدة.');
+          setAvailableGames(0);
+          setIsConsuming(false);
+          return;
+        }
+
+        const consumeData = await consumeRes.json();
+        const updatedBalance = typeof consumeData.remaining_games === 'number'
+          ? consumeData.remaining_games
+          : Math.max(0, availableGames - 1);
+        setAvailableGames(updatedBalance);
+
+        // 1 game consumed -> gives 5 rounds. This is round 1, so 4 rounds remain in this pack.
+        const newRemaining = ROUNDS_PER_GAME_CREDIT - 1;
+        setRemainingRoundsInPack(newRemaining);
+        try {
+          localStorage.setItem(SPY_ROUNDS_REMAINING_KEY, String(newRemaining));
+        } catch (e) {}
+      } catch (err) {
+        console.error('Failed to consume game session:', err);
+      } finally {
+        setIsConsuming(false);
+      }
+    } else {
+      // Consume 1 round from the active 5-round pack (no balance deduction)
+      const newRemaining = remainingRoundsInPack - 1;
+      setRemainingRoundsInPack(newRemaining);
+      try {
+        localStorage.setItem(SPY_ROUNDS_REMAINING_KEY, String(newRemaining));
+      } catch (e) {}
     }
 
     // 3. Clean player names
@@ -751,9 +784,21 @@ export const SpyGame = ({ onExit }) => {
           {/* Games Balance Badge */}
           <div className="px-3 py-1.5 rounded-xl bg-slate-800/90 border border-slate-700 flex items-center gap-1.5 text-xs font-bold text-slate-200">
             <Gift className="w-3.5 h-3.5 text-orange-400 animate-pulse" />
-            <span className="hidden sm:inline">رصيد الجولات:</span>
+            <span className="hidden sm:inline">رصيد الألعاب:</span>
             <span className="px-1.5 py-0.5 rounded-md bg-orange-500/20 text-orange-400 font-black">
               {availableGames}
+            </span>
+          </div>
+
+          {/* Active Spy Pack Rounds Badge */}
+          <div
+            className="px-3 py-1.5 rounded-xl bg-purple-950/60 border border-purple-800/80 flex items-center gap-1.5 text-xs font-bold text-purple-200"
+            title="كل 1 لعبة تمنحك 5 جولات كاملة في لعبة مين الدسوس"
+          >
+            <span className="text-purple-400">🕵️</span>
+            <span className="hidden sm:inline">جولات الجاسوس:</span>
+            <span className="px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 font-black">
+              {remainingRoundsInPack > 0 ? `${remainingRoundsInPack} متبقية من 5` : '1 لعبة = 5 جولات'}
             </span>
           </div>
 
@@ -1075,6 +1120,15 @@ export const SpyGame = ({ onExit }) => {
               <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300 leading-relaxed font-medium">
                 ⚡ يحسب السيستم جميع النقاط تلقائياً بناءً على أصواتكم وتخمين الدسوس، وتضاف مباشرة للوحة الصدارة!
               </div>
+
+              {/* 5-Rounds per Game Session Offer */}
+              <div className="p-3 rounded-2xl bg-gradient-to-r from-purple-950/60 to-indigo-950/60 border border-purple-700/60 text-xs text-purple-200 leading-relaxed font-bold flex items-center gap-2.5">
+                <span className="text-xl">🎁</span>
+                <div>
+                  <p className="text-amber-300 font-black">عرض الجلسة الخاص:</p>
+                  <p className="text-[11px] text-slate-300 font-medium">كل 1 لعبة من رصيدك تمنحك 5 جولات كاملة في لعبة مين الدسوس!</p>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}
@@ -1164,9 +1218,16 @@ export const SpyGame = ({ onExit }) => {
 
               <button
                 onClick={startSecretRound}
-                className="flex-1 py-3.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-sm sm:text-base rounded-2xl shadow-lg shadow-amber-500/20 active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer"
+                disabled={isConsuming}
+                className="flex-1 py-3.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-sm sm:text-base rounded-2xl shadow-lg shadow-amber-500/20 active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
-                <span>بدء الجولة وتوزيع البطاقات 🎭</span>
+                <span>
+                  {isConsuming
+                    ? 'جاري التحضير...'
+                    : remainingRoundsInPack > 0
+                    ? `بدء الجولة (${remainingRoundsInPack} متبقية في الباقة) 🎭`
+                    : 'بدء الجولة وتوزيع البطاقات 🎭 (1 لعبة = 5 جولات)'}
+                </span>
                 <ArrowLeft className="w-5 h-5" />
               </button>
             </div>
@@ -1865,10 +1926,17 @@ export const SpyGame = ({ onExit }) => {
                   <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row gap-3">
                     <button
                       onClick={startSecretRound}
-                      className="flex-1 py-4 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-sm sm:text-base rounded-2xl shadow-lg shadow-amber-500/20 active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer"
+                      disabled={isConsuming}
+                      className="flex-1 py-4 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-sm sm:text-base rounded-2xl shadow-lg shadow-amber-500/20 active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                     >
                       <RotateCcw className="w-5 h-5" />
-                      <span>جولة جديدة (مع الاحتفاظ بالنقاط) 🔄</span>
+                      <span>
+                        {isConsuming
+                          ? 'جاري التحضير...'
+                          : remainingRoundsInPack > 0
+                          ? `جولة جديدة (متبقي ${remainingRoundsInPack} من 5 بالباقة) 🔄`
+                          : 'بدء باقة جديدة (5 جولات بـ 1 لعبة) 🔄'}
+                      </span>
                     </button>
 
                     <button
