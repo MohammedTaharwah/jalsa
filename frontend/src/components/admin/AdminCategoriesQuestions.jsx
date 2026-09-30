@@ -209,6 +209,7 @@ export const AdminCategoriesQuestions = () => {
       options_json: options,
       correct_answer: correctAnswer,
       points_level: parseInt(qForm.points_level, 10),
+      media_url: qForm.media_url?.trim() || null,
       status: qForm.status || 'approved'
     };
 
@@ -515,6 +516,7 @@ export const AdminCategoriesQuestions = () => {
                   option4: '',
                   correct_option_index: 0,
                   points_level: 200,
+                  media_url: '',
                   status: 'approved'
                 });
                 setQModalOpen(true);
@@ -629,6 +631,7 @@ export const AdminCategoriesQuestions = () => {
                                   option4: opts[3] || '',
                                   correct_option_index: opts.indexOf(q.correct_answer) >= 0 ? opts.indexOf(q.correct_answer) : 0,
                                   points_level: q.points_level,
+                                  media_url: q.media_url || '',
                                   status: q.status
                                 });
                                 setQModalOpen(true);
@@ -825,6 +828,23 @@ export const AdminCategoriesQuestions = () => {
                       </div>
                     ))}
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">
+                    رابط وسائط السؤال (اختياري: صورة أو مقطع صوتي)
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://example.com/image.jpg أو .mp3"
+                    value={qForm.media_url || ''}
+                    onChange={(e) => setQForm({ ...qForm, media_url: e.target.value })}
+                    className="w-full py-2 px-3 text-xs bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-purple-500 font-medium"
+                    dir="ltr"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    يدعم صور JPG / PNG / WebP ومقاطع MP3 / WAV / OGG
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-3 pt-3">

@@ -6,6 +6,7 @@ export const BATTLEGROUND_QUESTIONS = {
       id: 301,
       points: 200,
       question_text: "كم عدد لاعبي فريق كرة القدم داخل أرضية الملعب في بداية المباراة؟",
+      media_url: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800&q=80",
       options_json: ["11 لاعباً", "10 لاعبين", "12 لاعباً", "9 لاعبين"],
       correct_answer: "11 لاعباً",
       category_name: "رياضة ولياقة"
@@ -13,7 +14,8 @@ export const BATTLEGROUND_QUESTIONS = {
     {
       id: 302,
       points: 200,
-      question_text: "ما هي اللعبة التي تستخدم فيها المضرب والكرة الصفراء والشبكة المنخفضة؟",
+      question_text: "ما هي اللعبة التي تستخدم فيها المضرب والكرة الصفراء والشبكة المنخفضة كما في الصورة؟",
+      media_url: "https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?w=800&q=80",
       options_json: ["التنس الأرضي", "كرة اليد", "الريشة الطائرة", "الغولف"],
       correct_answer: "التنس الأرضي",
       category_name: "رياضة ولياقة"
@@ -63,7 +65,8 @@ export const BATTLEGROUND_QUESTIONS = {
     {
       id: 102,
       points: 200,
-      question_text: "في أي دولة بنيت الأهرامات الشهيرة في الجيزة؟",
+      question_text: "في أي دولة بنيت الأهرامات الشهيرة الموضحة في الصورة؟",
+      media_url: "https://images.unsplash.com/photo-1503177119275-0aa32b3a9368?w=800&q=80",
       options_json: ["مصر", "السودان", "العراق", "المكسيك"],
       correct_answer: "مصر",
       category_name: "تاريخ وحضارات"
@@ -105,7 +108,8 @@ export const BATTLEGROUND_QUESTIONS = {
     {
       id: 201,
       points: 200,
-      question_text: "ما هو الكوكب الأقرب إلى الشمس في المجموعة الشمسية؟",
+      question_text: "ما هو الكوكب الأقرب إلى الشمس في المجموعة الشمسية كما هو موضح بالصورة؟",
+      media_url: "https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?w=800&q=80",
       options_json: ["عطارد", "الزهرة", "المريخ", "الأرض"],
       correct_answer: "عطارد",
       category_name: "علوم وفضاء"
@@ -156,6 +160,7 @@ export const BATTLEGROUND_QUESTIONS = {
       id: 401,
       points: 200,
       question_text: "ما هو اسم أشهر تمثال وجائزة سينمائية تقدمها أكاديمية الفنون في هوليوود؟",
+      media_url: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=800&q=80",
       options_json: ["الأوسكار", "السعفة الذهبية", "الدب الذهبي", "الغرامي"],
       correct_answer: "الأوسكار",
       category_name: "أفلام وسينما"
@@ -205,7 +210,8 @@ export const BATTLEGROUND_QUESTIONS = {
     {
       id: 501,
       points: 200,
-      question_text: "ما هو الحيوان المعروف بلقب (سفينة الصحراء)؟",
+      question_text: "ما هو الحيوان المعروف بلقب (سفينة الصحراء) والموضح بالصورة؟",
+      media_url: "https://images.unsplash.com/photo-1544717305-2782549b5136?w=800&q=80",
       options_json: ["الجمل", "الحصان", "الفيل", "الظبي"],
       correct_answer: "الجمل",
       category_name: "ثقافة عامة"

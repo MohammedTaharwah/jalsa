@@ -124,10 +124,21 @@ name: 'حذف إجابتين (50:50)',
 shortName: 'حذف 50:50',
 desc: 'إلغاء خيارين خاطئين لرفع احتمالية الإجابة الصحيحة',
 iconName: 'HelpCircle',
-cost: 100,
+cost: 200,
 color: 'amber',
 badge: '50:50',
-emoji: ''
+emoji: '🎯'
+},
+{
+id: 'time_boost',
+name: 'طلب وقت إضافي (+15ث)',
+shortName: 'وقت إضافي',
+desc: 'إضافة 15 ثانية لمؤقت السؤال للتفكير والنقاش',
+iconName: 'Hourglass',
+cost: 50,
+color: 'blue',
+badge: '+15ث',
+emoji: '⏳'
 }
 ];
 

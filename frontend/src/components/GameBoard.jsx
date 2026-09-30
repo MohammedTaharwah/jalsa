@@ -20,7 +20,10 @@ Eye,
 Snowflake,
 Lock,
 X,
-RefreshCw
+RefreshCw,
+Clock,
+Volume2,
+Image as ImageIcon
 } from 'lucide-react';
 import { useGameStore } from '../store/useGameStore';
 import { FortuneWheelModal } from './FortuneWheelModal';
@@ -64,7 +67,14 @@ closeQuestionModal,
 resetGame,
 initGame,
 availableGames,
-eliminatedOptions
+eliminatedOptions,
+secretBetModalOpen,
+activeSecretBetTile,
+confirmSecretBet,
+cancelSecretBet,
+finalRoundModalOpen,
+finalRoundQuestion,
+resolveFinalRound
 } = useGameStore();
 
 // If board not yet created (e.g. refreshed page directly on board stage), initialize it
@@ -88,10 +98,21 @@ const [timerActive, setTimerActive] = useState(false);
 // Exposed Question Mode local state (show / hide answer)
 const [isExposedAnswerShown, setIsExposedAnswerShown] = useState(false);
 
+// Extra Time (+15s) and Secret Bet Local State
+const [extraTimeUsed, setExtraTimeUsed] = useState(false);
+const [betInput, setBetInput] = useState(200);
+
+const handleRequestExtraTime = () => {
+  if (extraTimeUsed || !isTimerEnabled || isAnswerRevealed) return;
+  setTimeLeft(prev => prev + 15);
+  setExtraTimeUsed(true);
+};
+
 // Sync timer when question modal opens or rebound triggers
 useEffect(() => {
 if (!questionModalOpen || !activeTile) {
 setTimerActive(false);
+setExtraTimeUsed(false);
 return;
 }
 
@@ -760,8 +781,37 @@ timeLeft <= (reboundState.isActive ? 3 : 5) ? 'text-rose-600 animate-pulse' : 't
 )}
 
 {/* Big Arabic Question Text */}
-<div className="p-6 sm:p-8 rounded-3xl bg-slate-50 border border-slate-200 flex items-center justify-center min-h-[140px]">
-<h3 className="text-2xl sm:text-3xl font-black text-slate-900 leading-relaxed tracking-wide">
+<div className="p-6 sm:p-8 rounded-3xl bg-slate-50 border border-slate-200 flex flex-col items-center justify-center min-h-[140px] gap-4">
+{/* Media Display: Image or Audio */}
+{activeQuestion.media_url && (
+  <div className="w-full flex justify-center mb-1">
+    {activeQuestion.media_url.match(/\.(mp3|wav|ogg)$/i) || activeQuestion.media_type === 'audio' ? (
+      <div className="w-full max-w-md p-3.5 rounded-2xl bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border border-purple-200 shadow-sm flex flex-col items-center gap-2">
+        <div className="flex items-center gap-2 text-purple-700 text-xs font-black">
+          <Volume2 className="w-4 h-4 animate-bounce" />
+          <span>استمع للمقطع الصوتي للتعرف على الإجابة 🎧</span>
+        </div>
+        <audio controls className="w-full h-10 rounded-xl" src={activeQuestion.media_url}>
+          متصفحك لا يدعم مشغل الصوت
+        </audio>
+      </div>
+    ) : (
+      <div className="relative max-w-sm rounded-2xl overflow-hidden border border-slate-200 shadow-md group">
+        <img
+          src={activeQuestion.media_url}
+          alt="صورة السؤال"
+          className="w-full max-h-48 sm:max-h-56 object-cover rounded-2xl transition-transform duration-300 group-hover:scale-105"
+          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+        />
+        <div className="absolute bottom-2 right-2 px-2.5 py-0.5 rounded-full bg-slate-900/70 backdrop-blur-xs text-white text-[10px] font-bold flex items-center gap-1">
+          <ImageIcon className="w-3 h-3" />
+          <span>خمّن الصورة 🖼️</span>
+        </div>
+      </div>
+    )}
+  </div>
+)}
+<h3 className="text-2xl sm:text-3xl font-black text-slate-900 leading-relaxed tracking-wide text-center">
 {activeQuestion.question_text}
 </h3>
 </div>
@@ -819,20 +869,20 @@ className="px-6 py-3 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-b
 ) : (
 /* Standard 4-Option Grid (أ، ب، ج، د) */
 <div className="space-y-4">
-{/* Tactical Action Buttons: 50:50 and Swap Question (تغيير السؤال) */}
+{/* Tactical Action Buttons: 50:50, Extra Time, and Swap Question */}
 {!isAnswerRevealed && !reboundState.isActive && (
 <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1 pb-1">
 {currentTeam.loadout?.includes('fifty') && (
 <button
 type="button"
-disabled={(eliminatedOptions || []).length > 0 || currentTeam.isFrozen || (!((currentTeam.powerups?.fifty || 0) > 0) && currentTeam.score < 100)}
+disabled={(eliminatedOptions || []).length > 0 || currentTeam.isFrozen || (!((currentTeam.powerups?.fifty || 0) > 0) && currentTeam.score < 200)}
 onClick={() => activatePowerup(currentTeam.id, 'fifty')}
 className={`px-4 py-2 rounded-2xl font-black text-xs sm:text-sm flex items-center gap-2 border transition-all shadow-md active:scale-95 cursor-pointer ${
 (eliminatedOptions || []).length > 0
 ? 'bg-amber-50 border-amber-200 text-amber-800 opacity-90 cursor-default'
 : currentTeam.isFrozen
 ? 'bg-slate-100 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed'
-: ((currentTeam.powerups?.fifty || 0) > 0 || currentTeam.score >= 100)
+: ((currentTeam.powerups?.fifty || 0) > 0 || currentTeam.score >= 200)
 ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white border-amber-400 shadow-amber-500/25 animate-pulse'
 : 'bg-slate-100 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed'
 }`}
@@ -850,10 +900,31 @@ className={`px-4 py-2 rounded-2xl font-black text-xs sm:text-sm flex items-cente
 </span>
 ) : (
 <span className="px-2 py-0.5 rounded-full bg-black/20 text-amber-100 text-[10px] font-extrabold mr-1">
-100 نقطة
+200 نقطة
 </span>
 )
 )}
+</button>
+)}
+
+{/* Extra Time Weapon Button (+15s) */}
+{isTimerEnabled && (
+<button
+type="button"
+disabled={extraTimeUsed}
+onClick={handleRequestExtraTime}
+className={`px-4 py-2 rounded-2xl font-black text-xs sm:text-sm flex items-center gap-2 border transition-all active:scale-95 ${
+extraTimeUsed
+? 'bg-slate-100 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed'
+: 'bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-600 hover:from-blue-600 hover:to-cyan-600 text-white border-blue-400 shadow-md shadow-blue-500/20 cursor-pointer animate-pulse'
+}`}
+title="طلب وقت إضافي (+15 ثانية للتفكير)"
+>
+<Clock className="w-4 h-4 text-blue-100" />
+<span>وقت إضافي (+15ث) ⏳</span>
+<span className="px-1.5 py-0.5 rounded-full bg-black/20 text-blue-100 text-[10px] font-extrabold mr-0.5">
+{extraTimeUsed ? 'تم الاستخدام' : 'متاح'}
+</span>
 </button>
 )}
 
@@ -1000,6 +1071,154 @@ className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 h
 </motion.div>
 </div>
 )}
+</AnimatePresence>
+
+{/* ================= SECRET BET (DAILY DOUBLE) MODAL ================= */}
+<AnimatePresence>
+  {secretBetModalOpen && activeSecretBetTile && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md" dir="rtl">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        className="w-full max-w-lg bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-amber-300 text-center relative overflow-hidden"
+      >
+        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 via-orange-500 to-amber-600 mx-auto flex items-center justify-center text-3xl shadow-lg shadow-amber-500/30 mb-3 animate-bounce">
+          🎲
+        </div>
+        <span className="px-3.5 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-black border border-amber-300">
+          مربع الرهان السري (Daily Double) 🔥
+        </span>
+        <h3 className="text-xl sm:text-2xl font-black text-slate-900 mt-2 mb-1">
+          فريق [{currentTeam.name}]، كم تود أن تراهن؟
+        </h3>
+        <p className="text-xs text-slate-500 font-medium mb-5">
+          رصيد نقاط فريقك حالياً: <strong className="text-orange-600 font-bold">{currentTeam.score} نقطة</strong>. إذا أجبت صح كسبت رهانك، وإذا أخطأت خسرته!
+        </p>
+
+        {/* Quick Bet Buttons */}
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          <button
+            type="button"
+            onClick={() => setBetInput(200)}
+            className={`py-2 px-2.5 rounded-xl border text-xs font-black transition-all cursor-pointer ${
+              betInput === 200 ? 'bg-amber-500 text-white border-amber-600 shadow-sm' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+            }`}
+          >
+            200 (الأدنى)
+          </button>
+          <button
+            type="button"
+            onClick={() => setBetInput(Math.max(200, Math.floor((currentTeam.score || 0) / 2)))}
+            className={`py-2 px-2.5 rounded-xl border text-xs font-black transition-all cursor-pointer ${
+              betInput === Math.max(200, Math.floor((currentTeam.score || 0) / 2)) ? 'bg-amber-500 text-white border-amber-600 shadow-sm' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+            }`}
+          >
+            نصف النقاط ({Math.max(200, Math.floor((currentTeam.score || 0) / 2))})
+          </button>
+          <button
+            type="button"
+            onClick={() => setBetInput(Math.max(currentTeam.score || 0, 600))}
+            className={`py-2 px-2.5 rounded-xl border text-xs font-black transition-all cursor-pointer ${
+              betInput === Math.max(currentTeam.score || 0, 600) ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white border-rose-600 shadow-sm animate-pulse' : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+            }`}
+          >
+            شامل All-in 🔥 ({Math.max(currentTeam.score || 0, 600)})
+          </button>
+        </div>
+
+        {/* Custom Input */}
+        <div className="flex items-center justify-center gap-2 mb-5">
+          <span className="text-sm font-bold text-slate-600">الرهان المخصص:</span>
+          <input
+            type="number"
+            min={100}
+            max={Math.max(currentTeam.score || 0, 600)}
+            step={50}
+            value={betInput}
+            onChange={(e) => setBetInput(Math.max(100, Math.min(Number(e.target.value) || 100, Math.max(currentTeam.score || 0, 600))))}
+            className="w-28 py-1.5 px-3 text-center text-lg font-black rounded-xl border-2 border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500 text-amber-700 bg-amber-50/50"
+          />
+          <span className="text-xs font-bold text-slate-500">نقطة</span>
+        </div>
+
+        <div className="flex items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => confirmSecretBet(betInput)}
+            className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white font-black text-sm shadow-md shadow-orange-500/25 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+          >
+            <span>تأكيد الرهان والبدء 🚀</span>
+          </button>
+          <button
+            type="button"
+            onClick={cancelSecretBet}
+            className="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm transition-all cursor-pointer"
+          >
+            تراجع
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )}
+</AnimatePresence>
+
+{/* ================= FINAL ROUND (TIEBREAKER) MODAL ================= */}
+<AnimatePresence>
+  {finalRoundModalOpen && finalRoundQuestion && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md" dir="rtl">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        className="w-full max-w-2xl bg-white rounded-3xl p-6 sm:p-10 shadow-2xl border-2 border-orange-400 text-center relative overflow-hidden"
+      >
+        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-500 to-amber-600 mx-auto flex items-center justify-center text-3xl shadow-lg shadow-orange-500/30 mb-3 animate-pulse">
+          ⚔️
+        </div>
+        <span className="px-4 py-1.5 rounded-full bg-orange-100 text-orange-800 text-xs font-black border border-orange-300">
+          الجولة الحاسمة لكسر التعادل (Sudden Death) ⚡
+        </span>
+        <h3 className="text-2xl sm:text-3xl font-black text-slate-900 mt-2 mb-2">
+          تعادل تاريخي! من سيحسم اللقب؟
+        </h3>
+        <p className="text-xs text-slate-600 font-bold mb-6">
+          تعادل الفريقان ({teams[0]?.name} ضد {teams[1]?.name}) بنتيجة {teams[0]?.score} نقطة! السؤال التالي يحدد الفائز بالبطولة فوراً:
+        </p>
+
+        {/* Question Text */}
+        <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 mb-6 text-xl sm:text-2xl font-black text-slate-900 leading-relaxed">
+          {finalRoundQuestion.question_text}
+        </div>
+
+        {/* Options */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+          {(finalRoundQuestion.options_json || []).map((opt, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => {
+                const isCorrect = opt === finalRoundQuestion.correct_answer;
+                if (isCorrect) {
+                  resolveFinalRound(currentTurn);
+                } else {
+                  const otherIdx = (currentTurn + 1) % teams.length;
+                  resolveFinalRound(otherIdx);
+                }
+              }}
+              className="p-4 rounded-2xl bg-white hover:bg-orange-50 border-2 border-slate-200 hover:border-orange-400 font-black text-slate-800 text-sm sm:text-base transition-all shadow-xs active:scale-95 cursor-pointer text-center"
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+
+        <div className="text-xs text-slate-400 font-bold">
+          الفريق صاحب الدور للإجابة: <strong className="text-orange-600 font-black">[{currentTeam.name}]</strong>
+        </div>
+      </motion.div>
+    </div>
+  )}
 </AnimatePresence>
 
 {/* ================= FORTUNE WHEEL MODAL (4 OUTCOMES) ================= */}

@@ -177,7 +177,15 @@ export const useGameStore = create((set, get) => {
     isWheelSpinning: false,
     selectedWheelOption: null,
     wheelRotation: 0,
-    activeModifier: null, // null | 'double' | 'steal' | 'freeze' | 'fifty'
+    activeModifier: null, // null | 'double' | 'steal' | 'freeze' | 'fifty' | 'secret_bet'
+
+    // Secret Bet (Daily Double) State
+    secretBetModalOpen: false,
+    activeSecretBetTile: null,
+
+    // Final Round (Sudden Death on Tie) State
+    finalRoundModalOpen: false,
+    finalRoundQuestion: null,
 
     // Route & Navigation State
     currentRoute: (() => {
@@ -472,12 +480,14 @@ isUsed: false,
 status: 'available',
 winnerTeamId: null,
 isMystery: (rowIdx === 2 || rowIdx === 3) && colIdx % 2 === 0,
+isSecretBet: (rowIdx === 2 && (colIdx === 1 || colIdx === 4)),
 question: {
 id: q.id,
 question_text: q.question_text,
 options_json: shuffleArray(q.options_json || []),
 correct_answer: q.correct_answer,
 points: q.points_level || pts,
+media_url: q.media_url || null,
 category_name: col.category_name
 }
 };
@@ -563,7 +573,11 @@ isUsed: false,
 status: 'available',
 winnerTeamId: null,
 isMystery: (rowIdx === 2 || rowIdx === 3) && colIdx % 2 === 0,
-question: randomizedQuestion
+isSecretBet: (rowIdx === 2 && (colIdx === 1 || colIdx === 4)),
+question: {
+...randomizedQuestion,
+media_url: randomizedQuestion.media_url || null
+}
 };
 });
 
@@ -964,6 +978,105 @@ swapActiveQuestion: () => {
 },
 
 /**
+ * تأكيد رهان السؤال السري وبدء السؤال بالنقاط المرهونة
+ */
+confirmSecretBet: (betAmount) => {
+  const { activeSecretBetTile, teams, currentTurn } = get();
+  if (!activeSecretBetTile) return;
+  const currentTeam = teams[currentTurn];
+  const maxBet = Math.max(currentTeam.score || 0, 600);
+  const minBet = 100;
+  const validBet = Math.min(Math.max(Number(betAmount) || minBet, minBet), maxBet);
+
+  const tileWithBet = {
+    ...activeSecretBetTile,
+    points: validBet,
+    originalPoints: activeSecretBetTile.points
+  };
+
+  set({
+    activeTile: tileWithBet,
+    activeQuestion: activeSecretBetTile.question,
+    selectedOption: null,
+    isAnswerRevealed: false,
+    isCorrect: null,
+    eliminatedOptions: [],
+    secretBetModalOpen: false,
+    questionModalOpen: true,
+    activeModifier: 'secret_bet',
+    mysteryModifier: null,
+    reboundState: { isActive: false, teamIndex: null, wrongOptions: [], timeLeft: 10, basePoints: 0 },
+    gameBanner: {
+      type: 'double',
+      title: `🎲 تم تأكيد الرهان بـ ${validBet} نقطة!`,
+      message: `فريق [${currentTeam.name}] راهن بـ ${validBet} نقطة على هذا السؤال!`
+    }
+  });
+  confetti({ particleCount: 70, spread: 80 });
+},
+
+/**
+ * إلغاء الرهان السري والعودة للوحة
+ */
+cancelSecretBet: () => {
+  set({
+    secretBetModalOpen: false,
+    activeSecretBetTile: null
+  });
+},
+
+/**
+ * بدء الجولة النهائية الحاسمة في حالة التعادل فقط (Final Round)
+ */
+startFinalRound: () => {
+  const { teams } = get();
+  const pool = BATTLEGROUND_QUESTIONS.general || [];
+  const q = pool[Math.floor(Math.random() * pool.length)] || {
+    id: 9999,
+    question_text: 'ما هي الدولة العربية الوحيدة التي تطل على البحر الأبيض المتوسط والمحيط الأطلسي معاً؟',
+    options_json: ['المغرب', 'مصر', 'الجزائر', 'موريتانيا'],
+    correct_answer: 'المغرب',
+    points: 1000
+  };
+
+  set({
+    finalRoundModalOpen: true,
+    finalRoundQuestion: {
+      ...q,
+      options_json: shuffleArray(q.options_json || [])
+    },
+    gameBanner: {
+      type: 'warning',
+      title: '⚔️ الجولة النهائية الحاسمة لكسر التعادل!',
+      message: `تعادل الفريقان بنتيجة [${teams[0]?.score || 0}] نقطة! السؤال الأخير سيحسم لقب الجلسة!`
+    }
+  });
+  confetti({ particleCount: 160, spread: 90 });
+},
+
+/**
+ * تتويج الفائز في الجولة النهائية الحاسمة
+ */
+resolveFinalRound: (winningTeamIndex) => {
+  const { teams } = get();
+  const winner = teams[winningTeamIndex];
+
+  set(state => ({
+    teams: state.teams.map((t, idx) => idx === winningTeamIndex ? { ...t, score: t.score + 500 } : t),
+    finalRoundModalOpen: false,
+    finalRoundQuestion: null,
+    gameStage: 'game_over',
+    gameBanner: {
+      type: 'wheel_win',
+      title: '🏆 حسم البطولة في الجولة الحاسمة!',
+      message: `ألف مبروك لفريق [${winner?.name}] حسم الجولة النهائية والتتويج بلقب جلسة اليوم!`
+    }
+  }));
+  confetti({ particleCount: 250, spread: 100, origin: { y: 0.5 } });
+  persistActiveGame(get());
+},
+
+/**
 * دالة الضغط على مربع السؤال مع التحقق من قاعدة القفل وتحدي العجلة
 */
 selectTile: (category, tile) => {
@@ -1045,6 +1158,20 @@ const fullTileData = {
 categoryName: category.name || category.categoryName,
 categoryMeta: category.categoryMeta || CATEGORIES_DATA.find(c => c.id === tile.categoryId)
 };
+
+// فحص سؤال الرهان السري (Secret Bet / Daily Double)
+if (tile.isSecretBet && !isStealMode && !isWheelChallengeActive) {
+  set({
+    secretBetModalOpen: true,
+    activeSecretBetTile: fullTileData,
+    gameBanner: {
+      type: 'double',
+      title: '🎲 عثرت على مربع الرهان السري!',
+      message: `فريق [${currentTeam.name}]، عثرتم على مربع الرهان السري! حدد مقدار رهانك قبل فتح السؤال!`
+    }
+  });
+  return;
+}
 
 let activeMod = isStealMode ? 'steal' : get().activeModifier;
 let mysteryMod = null;
@@ -1422,6 +1549,12 @@ type: 'steal_success',
 title: 'تمت سرقة السؤال بنجاح!',
 message: `أحسنت! كسب فريق [${currentTeam.name}] ${basePoints} نقطة وحُرم الخصم منها نهائياً!`
 };
+} else if (activeModifier === 'secret_bet') {
+banner = {
+type: 'double',
+title: '🎲 فوز كاسح بالرهان السري!',
+message: `إجابة صحيحة خارقة! كسب فريق [${currentTeam.name}] الرهان كاملاً (+${basePoints} نقطة)!`
+};
 }
 
 set(state => ({
@@ -1455,7 +1588,7 @@ gameBanner: banner || state.gameBanner
 } else {
 // الفريق الأساسي أخطأ أو انتهى وقته!
 const hasShield = mysteryModifier === 'shield';
-const penalty = hasShield ? 0 : Math.floor(basePoints / 2);
+const penalty = hasShield ? 0 : (activeModifier === 'secret_bet' ? basePoints : Math.floor(basePoints / 2));
 
 let banner = null;
 if (hasShield) {
@@ -1470,9 +1603,15 @@ type: 'wheel_loss',
 title: 'خسارة تحدي العجلة!',
 message: `إجابة خاطئة! خسر فريق [${currentTeam.name}] فرصة التحدي ونقاط السؤال.`
 };
+} else if (activeModifier === 'secret_bet') {
+banner = {
+type: 'warning',
+title: 'خسارة الرهان السري! 🎲',
+message: `إجابة خاطئة! خسر فريق [${currentTeam.name}] رهان الـ ${basePoints} نقطة بالكامل!`
+};
 }
 
-// خصم نصف النقاط من الفريق الأساسي
+// خصم النقاط من الفريق الأساسي
 set(state => ({
 teams: state.teams.map((t, idx) => {
 if (idx === currentTurn) {
@@ -1484,8 +1623,8 @@ teamLevelPicks: [...state.teamLevelPicks, newPick],
 gameBanner: banner || state.gameBanner
 }));
 
-// في تحدي العجلة: ينتهي التحدي دون فرصة خطف للخصم
-if (isWheelChallengeActive) {
+// في تحدي العجلة أو الرهان السري: ينتهي السؤال فوراً دون فرصة خطف للخصم
+if (isWheelChallengeActive || activeModifier === 'secret_bet') {
 set(state => ({
 board: state.board.map(col => ({
 ...col,
@@ -1560,6 +1699,16 @@ const remainingTiles = board.reduce(
 
 if (remainingTiles === 0) {
 confetti({ particleCount: 220, spread: 100, origin: { y: 0.5 } });
+
+// فحص التعادل: الجولة النهائية الحاسمة في حالة التعادل فقط!
+const sorted = [...teams].sort((a, b) => b.score - a.score);
+const isTie = sorted.length > 1 && sorted[0].score === sorted[1].score;
+
+if (isTie) {
+get().startFinalRound();
+return;
+}
+
 set({
 gameStage: 'game_over',
 questionModalOpen: false,
