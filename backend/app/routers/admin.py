@@ -18,6 +18,7 @@ from app.models.question import Question
 from app.models.seen_question import UserSeenQuestions
 from app.models.powerup import PowerUp
 from app.models.promo import PromoCode, UserPromoUsage
+from app.models.payment import PaymentOrder
 from app.schemas.user import UserOut
 from app.schemas.category import CategoryCreate, CategoryUpdate, CategoryOut
 from app.schemas.question import QuestionCreate, QuestionUpdate, QuestionOut
@@ -26,6 +27,7 @@ from app.schemas.promo import PromoCodeCreate, PromoCodeOut
 from app.schemas.ai import GenerateQuestionsRequest
 from app.schemas.admin import (
     AdminOverviewOut,
+    PaymentOrderOut,
     UserBalanceAdjustRequest,
     QuestionStatusUpdateRequest,
     PackageUpdate
@@ -64,14 +66,27 @@ def get_dashboard_overview(
     seen_q_count = db.query(func.count(UserSeenQuestions.id)).scalar() or 0
     total_games_played = max(seen_q_count // 18, 12)  # baseline estimate
 
-    # Estimated revenue from sales
-    promo_usages = db.query(func.count(UserPromoUsage.id)).scalar() or 0
-    total_sales = round(34.99 + (total_games_bal * 0.45) + (promo_usages * 1.5), 2)
+    # Verified PayPal Revenue: STRICTLY real, completed PayPal payments (is_manual=False)
+    # Manual admin additions or promo usages will NEVER inflate sales revenue.
+    paypal_sales_scalar = db.query(func.sum(PaymentOrder.amount)).filter(
+        PaymentOrder.status == "COMPLETED",
+        PaymentOrder.payment_method == "paypal",
+        PaymentOrder.is_manual == False
+    ).scalar()
+    total_sales = round(float(paypal_sales_scalar or 0.0), 2)
+
+    total_paypal_orders = db.query(func.count(PaymentOrder.id)).filter(
+        PaymentOrder.status == "COMPLETED",
+        PaymentOrder.payment_method == "paypal",
+        PaymentOrder.is_manual == False
+    ).scalar() or 0
 
     recent_users = db.query(User).order_by(User.id.desc()).limit(5).all()
+    recent_payments = db.query(PaymentOrder).order_by(PaymentOrder.id.desc()).limit(10).all()
 
     return AdminOverviewOut(
         total_sales=total_sales,
+        total_paypal_orders=total_paypal_orders,
         active_users=active_users,
         total_games_played=total_games_played,
         total_games_balance=total_games_bal,
@@ -80,8 +95,18 @@ def get_dashboard_overview(
         pending_questions=pending_q,
         total_categories=total_cats,
         total_promos=total_promos,
-        recent_users=recent_users
+        recent_users=recent_users,
+        recent_payments=recent_payments
     )
+
+
+@router.get("/payments", response_model=List[PaymentOrderOut])
+def get_admin_payments(
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_admin)
+):
+    """عرض قائمة مدفوعات PayPal الموثقة ومشتريات الباقات."""
+    return db.query(PaymentOrder).order_by(PaymentOrder.id.desc()).all()
 
 
 # =========================================================================

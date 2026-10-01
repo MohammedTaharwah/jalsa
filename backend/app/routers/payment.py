@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
+from app.models.payment import PaymentOrder
 from app.config import settings
 from app.core.deps import get_optional_current_user
 
@@ -208,12 +209,40 @@ async def capture_paypal_order(
             detail="لم يتم العثور على حساب مستخدم لربط العملية به. يرجى تسجيل الدخول أولاً."
         )
 
+    # Check if this PayPal order was already captured and credited to prevent duplicate processing
+    existing_order = db.query(PaymentOrder).filter(PaymentOrder.paypal_order_id == payload.orderID).first()
+    if existing_order:
+        logger.info(f"PayPal order {payload.orderID} already processed previously.")
+        return {
+            "success": True,
+            "message": f"تمت معالجة هذه الدفعة مسبقاً وتفعيل باقة [{package['name']}].",
+            "games_added": 0,
+            "new_balance": user.games_balance,
+            "capture_id": existing_order.paypal_capture_id or capture_id
+        }
+
+    # Record verified PayPal transaction in payment_orders
+    order_record = PaymentOrder(
+        user_id=user.id,
+        paypal_order_id=payload.orderID,
+        paypal_capture_id=capture_id,
+        package_id=package["id"],
+        package_name=package["name"],
+        games_count=package["games_count"],
+        amount=float(package["price_usd"]),
+        currency="USD",
+        status="COMPLETED",
+        payment_method="paypal",
+        is_manual=False
+    )
+    db.add(order_record)
+
     user.games_balance += package["games_count"]
     db.commit()
     db.refresh(user)
     new_balance = user.games_balance
 
-    logger.info(f"Payment captured successfully for {package['name']}. User games balance: {new_balance}")
+    logger.info(f"Verified PayPal payment captured and saved ({order_record.paypal_order_id}, ${order_record.amount}) for user {user.username}. New games balance: {new_balance}")
 
     return {
         "success": True,

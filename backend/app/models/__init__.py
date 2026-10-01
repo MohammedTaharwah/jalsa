@@ -6,6 +6,7 @@ from app.models.promo import PromoCode, UserPromoUsage
 from app.models.seen_question import UserSeenQuestions
 from app.models.spy import SpyCategory, SpyWord
 from app.models.social import SocialLink
+from app.models.payment import PaymentOrder
 
 __all__ = [
     "User",
@@ -17,5 +18,7 @@ __all__ = [
     "UserSeenQuestions",
     "SpyCategory",
     "SpyWord",
-    "SocialLink"
+    "SocialLink",
+    "PaymentOrder"
 ]
+

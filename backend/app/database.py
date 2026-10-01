@@ -84,7 +84,8 @@ def init_db():
                 "social_links",
                 "spy_categories",
                 "spy_words",
-                "users"
+                "users",
+                "payment_orders"
             ]
             for tbl in rls_tables:
                 try:

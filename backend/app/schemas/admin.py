@@ -1,10 +1,31 @@
+from datetime import datetime
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 from app.schemas.user import UserOut
 
 
+class PaymentOrderOut(BaseModel):
+    id: int
+    user_id: Optional[int] = None
+    paypal_order_id: str
+    paypal_capture_id: Optional[str] = None
+    package_id: str
+    package_name: str
+    games_count: int
+    amount: float
+    currency: str
+    status: str
+    payment_method: str
+    is_manual: bool = False
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
 class AdminOverviewOut(BaseModel):
     total_sales: float
+    total_paypal_orders: int = 0
     active_users: int
     total_games_played: int
     total_games_balance: int
@@ -14,6 +35,7 @@ class AdminOverviewOut(BaseModel):
     total_categories: int
     total_promos: int
     recent_users: List[UserOut] = []
+    recent_payments: List[PaymentOrderOut] = []
 
 
 class UserBalanceAdjustRequest(BaseModel):

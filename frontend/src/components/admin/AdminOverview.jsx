@@ -18,7 +18,9 @@ import {
   Check,
   X,
   RotateCcw,
-  Edit3
+  Edit3,
+  Receipt,
+  CheckCircle2
 } from 'lucide-react';
 import { authFetch } from '../../utils/api';
 
@@ -43,7 +45,7 @@ export const AdminOverview = ({ onNavigateTab }) => {
       customUsers: '',
       customGamesPlayed: '',
       customGamesBalance: '',
-      salesGrowthText: '+18% هذا الأسبوع'
+      salesGrowthText: ''
     };
   });
 
@@ -89,7 +91,7 @@ export const AdminOverview = ({ onNavigateTab }) => {
       customUsers: '',
       customGamesPlayed: '',
       customGamesBalance: '',
-      salesGrowthText: '+18% هذا الأسبوع'
+      salesGrowthText: ''
     };
     setDashConfig(resetCfg);
     setFormConfig(resetCfg);
@@ -152,11 +154,11 @@ export const AdminOverview = ({ onNavigateTab }) => {
     {
       title: 'إجمالي المبيعات والمدفوعات',
       value: formatMoney(displaySales),
-      subtitle: 'عبر بوابات الدفع PayPal والباقات',
+      subtitle: 'مدفوعات PayPal الموثقة فقط',
       icon: TrendingUp,
       color: 'from-emerald-500 to-teal-600',
       lightBg: 'bg-emerald-50 text-emerald-600 border-emerald-200',
-      badge: dashConfig.salesGrowthText || '+18% هذا الأسبوع'
+      badge: dashConfig.salesGrowthText || (displaySales > 0 ? `${data?.total_paypal_orders || 1} مدفوعات PayPal ✅` : '0 مدفوعات PayPal')
     },
     {
       title: 'عدد المستخدمين المسجلين',
@@ -409,6 +411,72 @@ export const AdminOverview = ({ onNavigateTab }) => {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Verified PayPal Payments Log */}
+      <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shadow-xs">
+              <Receipt className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-slate-800">سجل مدفوعات PayPal الموثقة 💳</h3>
+              <p className="text-xs text-slate-400">عمليات الشراء الفعلية عبر بوابة PayPal فقط (لا تشمل الجلسات المضافة يدوياً)</p>
+            </div>
+          </div>
+          <span className="self-start sm:self-auto text-xs font-black px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
+            {data?.total_paypal_orders || data?.recent_payments?.length || 0} عمليات شراء مؤكدة
+          </span>
+        </div>
+
+        {data?.recent_payments && data.recent_payments.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-right text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-400">
+                  <th className="pb-3 font-bold">معرف الطلب (PayPal Order ID)</th>
+                  <th className="pb-3 font-bold">الباقة</th>
+                  <th className="pb-3 font-bold">الجلسات المضافة</th>
+                  <th className="pb-3 font-bold">المبلغ المدفوع</th>
+                  <th className="pb-3 font-bold">الحالة</th>
+                  <th className="pb-3 font-bold">التاريخ</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {data.recent_payments.map((p) => (
+                  <tr key={p.id} className="hover:bg-slate-50/50 transition">
+                    <td className="py-3 font-mono font-bold text-slate-800 dir-ltr text-left">
+                      {p.paypal_order_id}
+                    </td>
+                    <td className="py-3 font-bold text-slate-800">{p.package_name}</td>
+                    <td className="py-3 font-bold text-purple-600">+{p.games_count} جلسة</td>
+                    <td className="py-3 font-black text-emerald-600">{formatMoney(p.amount)}</td>
+                    <td className="py-3">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        موثقة ومؤكدة عبر PayPal
+                      </span>
+                    </td>
+                    <td className="py-3 text-slate-400 font-sans">
+                      {p.created_at ? new Date(p.created_at).toLocaleDateString('ar-EG', { dateStyle: 'short', timeStyle: 'short' }) : 'الآن'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="py-8 px-4 rounded-2xl bg-slate-50/70 border border-slate-100 text-center flex flex-col items-center justify-center">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <h4 className="text-sm font-black text-slate-800">لا توجد عمليات شراء عبر PayPal حتى الآن</h4>
+            <p className="text-xs text-slate-500 mt-1 max-w-lg leading-relaxed">
+              تم تصفير رصيد المبيعات الحالي إلى <strong className="text-slate-900">$0.00</strong>. سيتم البدء في حساب وتجميع الأرباح تلقائياً فور قيام أي لاعب بإتمام عملية شراء مؤكدة عبر PayPal، ولن يتم احتساب أي جلسات تمنحها يدوياً.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ================= DASHBOARD OVERRIDE & CURRENCY MODAL ================= */}
