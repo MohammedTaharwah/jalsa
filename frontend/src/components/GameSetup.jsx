@@ -440,7 +440,7 @@ setIsApplyingPromo(true);
 setPromoFeedback(null);
 
 try {
-const token = localStorage.getItem('jalsah_access_token');
+const token = localStorage.getItem('jalsah_access_token') || sessionStorage.getItem('jalsah_access_token');
 const res = await fetch(`${API_BASE}/promo/apply`, {
 method: 'POST',
 headers: {
@@ -502,7 +502,7 @@ setPromoFeedback(null);
 
 try {
 // 3. Atomically consume 1 game session on backend first
-const token = localStorage.getItem('jalsah_access_token');
+const token = localStorage.getItem('jalsah_access_token') || sessionStorage.getItem('jalsah_access_token');
 const consumeRes = await fetch(`${API_BASE}/promo/consume-game`, {
 method: 'POST',
 headers: {

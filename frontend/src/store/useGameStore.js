@@ -211,50 +211,58 @@ export const useGameStore = create((set, get) => {
     // Current User Session
     currentUser: (() => {
       try {
-        const saved = localStorage.getItem('jalsah_user');
+        const saved = localStorage.getItem('jalsah_user') || sessionStorage.getItem('jalsah_user');
         if (saved) return JSON.parse(saved);
       } catch (e) {}
       return null;
     })(),
 
-// Available Games Balance in Global Store
-availableGames: (() => {
-try {
-const saved = localStorage.getItem('jalsah_user');
-if (saved) {
-const u = JSON.parse(saved);
-if (typeof u.games_balance === 'number') return u.games_balance;
-}
-} catch (e) {}
-return 1;
-})(),
+    // Available Games Balance in Global Store
+    availableGames: (() => {
+      try {
+        const saved = localStorage.getItem('jalsah_user') || sessionStorage.getItem('jalsah_user');
+        if (saved) {
+          const u = JSON.parse(saved);
+          if (typeof u.games_balance === 'number') return u.games_balance;
+        }
+      } catch (e) {}
+      return 1;
+    })(),
 
-// Alerts & Notifications
-gameBanner: null,
+    // Alerts & Notifications
+    gameBanner: null,
 
-// ================= ACTIONS =================
+    // ================= ACTIONS =================
 
-setCurrentUser: (user) => {
-try {
-if (user) {
-localStorage.setItem('jalsah_user', JSON.stringify(user));
-} else {
-localStorage.removeItem('jalsah_user');
-}
-} catch (e) {}
+    setCurrentUser: (user) => {
+      try {
+        if (user) {
+          const isSessionOnly = !!sessionStorage.getItem('jalsah_access_token');
+          if (isSessionOnly) {
+            sessionStorage.setItem('jalsah_user', JSON.stringify(user));
+            localStorage.removeItem('jalsah_user');
+          } else {
+            localStorage.setItem('jalsah_user', JSON.stringify(user));
+            sessionStorage.removeItem('jalsah_user');
+          }
+        } else {
+          localStorage.removeItem('jalsah_user');
+          sessionStorage.removeItem('jalsah_user');
+        }
+      } catch (e) {}
 
-const isAdmin = user?.role === 'admin';
-const newRoute = isAdmin ? 'admin' : (get().currentRoute === 'admin' ? 'setup' : get().currentRoute);
-if (typeof window !== 'undefined') {
-window.history.pushState(null, '', newRoute === 'admin' ? '/admin' : newRoute === 'board' ? '/board' : '/');
-}
+      const isAdmin = user?.role === 'admin';
+      const newRoute = isAdmin ? 'admin' : (get().currentRoute === 'admin' ? 'setup' : get().currentRoute);
+      if (typeof window !== 'undefined') {
+        window.history.pushState(null, '', newRoute === 'admin' ? '/admin' : newRoute === 'board' ? '/board' : '/');
+      }
 
-set({
-currentUser: user,
-currentRoute: newRoute,
-availableGames: user?.games_balance !== undefined ? user.games_balance : 1
-});
-},
+      set({
+        currentUser: user,
+        currentRoute: newRoute,
+        availableGames: user?.games_balance !== undefined ? user.games_balance : 1
+      });
+    },
 
 setGameMode: (gameMode) => {
   try {
@@ -303,70 +311,76 @@ window.history.pushState(null, '', route === 'board' ? '/board' : '/');
 set({ currentRoute: route });
 },
 
-logout: () => {
-try {
-localStorage.removeItem('jalsah_access_token');
-localStorage.removeItem('jalsah_user');
-clearSavedActiveGame();
-} catch (e) {}
-if (typeof window !== 'undefined') {
-window.history.pushState(null, '', '/');
-}
-set({
-currentUser: null,
-currentRoute: 'setup',
-gameStage: 'setup',
-board: [],
-availableGames: 1
-});
-},
+    logout: () => {
+      try {
+        localStorage.removeItem('jalsah_access_token');
+        localStorage.removeItem('jalsah_user');
+        sessionStorage.removeItem('jalsah_access_token');
+        sessionStorage.removeItem('jalsah_user');
+        clearSavedActiveGame();
+      } catch (e) {}
+      if (typeof window !== 'undefined') {
+        window.history.pushState(null, '', '/');
+      }
+      set({
+        currentUser: null,
+        currentRoute: 'setup',
+        gameStage: 'setup',
+        board: [],
+        availableGames: 1
+      });
+    },
 
-rehydrateSession: async () => {
-const token = get().getAuthToken();
-if (!token) return;
+    rehydrateSession: async () => {
+      const token = get().getAuthToken();
+      if (!token) return;
 
-try {
-const response = await fetch(`${API_BASE}/auth/me`, {
-headers: { Authorization: `Bearer ${token}` }
-});
+      try {
+        const response = await fetch(`${API_BASE}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
 
-if (!response.ok) {
-get().logout();
-return;
-}
+        if (!response.ok) {
+          get().logout();
+          return;
+        }
 
-const user = await response.json();
-get().setCurrentUser(user);
-} catch (error) {
-// Keep the cached session during a temporary network outage.
-console.error('Unable to restore the saved session:', error);
-}
-},
+        const user = await response.json();
+        get().setCurrentUser(user);
+      } catch (error) {
+        // Keep the cached session during a temporary network outage.
+        console.error('Unable to restore the saved session:', error);
+      }
+    },
 
-getAuthToken: () => {
-try {
-return localStorage.getItem('jalsah_access_token') || '';
-} catch (e) {
-return '';
-}
-},
+    getAuthToken: () => {
+      try {
+        return localStorage.getItem('jalsah_access_token') || sessionStorage.getItem('jalsah_access_token') || '';
+      } catch (e) {
+        return '';
+      }
+    },
 
-setAvailableGames: (count) => {
-const validCount = Math.max(0, count);
-set(state => {
-let updatedUser = state.currentUser;
-if (updatedUser) {
-updatedUser = { ...updatedUser, games_balance: validCount };
-try {
-localStorage.setItem('jalsah_user', JSON.stringify(updatedUser));
-} catch (e) {}
-}
-return {
-availableGames: validCount,
-currentUser: updatedUser
-};
-});
-},
+    setAvailableGames: (count) => {
+      const validCount = Math.max(0, count);
+      set(state => {
+        let updatedUser = state.currentUser;
+        if (updatedUser) {
+          updatedUser = { ...updatedUser, games_balance: validCount };
+          try {
+            if (sessionStorage.getItem('jalsah_user')) {
+              sessionStorage.setItem('jalsah_user', JSON.stringify(updatedUser));
+            } else {
+              localStorage.setItem('jalsah_user', JSON.stringify(updatedUser));
+            }
+          } catch (e) {}
+        }
+        return {
+          availableGames: validCount,
+          currentUser: updatedUser
+        };
+      });
+    },
 
 addAvailableGames: (count) => {
 const current = get().availableGames || 0;

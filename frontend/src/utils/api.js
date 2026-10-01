@@ -2,7 +2,7 @@ export const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 export const getAuthToken = () => {
   try {
-    return localStorage.getItem('jalsah_access_token') || '';
+    return localStorage.getItem('jalsah_access_token') || sessionStorage.getItem('jalsah_access_token') || '';
   } catch (e) {
     return '';
   }

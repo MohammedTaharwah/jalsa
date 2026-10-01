@@ -29,6 +29,26 @@ const { currentUser, setCurrentUser, availableGames, setAvailableGames, logout }
 // Mode toggles
 const [isLogin, setIsLogin] = useState(true);
 const [isOTPStep, setIsOTPStep] = useState(false);
+const [rememberMe, setRememberMe] = useState(true);
+
+// Helper to save session based on Remember Me toggle
+const saveAuthSession = (token, user) => {
+  try {
+    if (rememberMe) {
+      if (token) localStorage.setItem('jalsah_access_token', token);
+      if (user) localStorage.setItem('jalsah_user', JSON.stringify(user));
+      sessionStorage.removeItem('jalsah_access_token');
+      sessionStorage.removeItem('jalsah_user');
+    } else {
+      if (token) sessionStorage.setItem('jalsah_access_token', token);
+      if (user) sessionStorage.setItem('jalsah_user', JSON.stringify(user));
+      localStorage.removeItem('jalsah_access_token');
+      localStorage.removeItem('jalsah_user');
+    }
+  } catch (e) {
+    console.error('Session storage error:', e);
+  }
+};
 
 // Form Fields
 const [username, setUsername] = useState('');
@@ -76,7 +96,7 @@ password: pass
 const data = await parseApiResponse(res);
 
 if (data.access_token) {
-localStorage.setItem('jalsah_access_token', data.access_token);
+saveAuthSession(data.access_token, data.user);
 }
 
 const userData = data.user;
@@ -131,7 +151,7 @@ if (data.requires_otp) {
 }
 
 if (data.access_token) {
-  localStorage.setItem('jalsah_access_token', data.access_token);
+  saveAuthSession(data.access_token, data.user);
 }
 setCurrentUser(data.user);
 if (typeof data.user?.games_balance === 'number') {
@@ -207,7 +227,7 @@ otp_code: fullCode
 const data = await parseApiResponse(res);
 
 if (data.access_token) {
-localStorage.setItem('jalsah_access_token', data.access_token);
+saveAuthSession(data.access_token, data.user);
 }
 
 const verifiedUser = data.user;
@@ -530,6 +550,22 @@ className="w-full pl-3 pr-10 py-2.5 rounded-xl bg-white text-gray-900 border bor
 </div>
 </div>
 
+{/* Remember Me Checkbox */}
+<div className="flex items-center justify-between py-1 px-1 select-none">
+  <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-700 hover:text-purple-700 transition-colors">
+    <input
+      type="checkbox"
+      checked={rememberMe}
+      onChange={(e) => setRememberMe(e.target.checked)}
+      className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-gray-300 cursor-pointer accent-purple-600"
+    />
+    <span>تذكرني على هذا الجهاز</span>
+  </label>
+  <span className="text-[10px] text-gray-400 font-medium">
+    {rememberMe ? 'يبقى الحساب مسجلاً' : 'خروج عند إغلاق المتصفح'}
+  </span>
+</div>
+
 <button
 type="submit"
 disabled={isLoading || !email || !password}
@@ -609,6 +645,22 @@ className="w-full pl-3 pr-10 py-2.5 rounded-xl bg-white text-gray-900 border bor
 />
 <Lock className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2" />
 </div>
+</div>
+
+{/* Remember Me Checkbox */}
+<div className="flex items-center justify-between py-1 px-1 select-none">
+  <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-gray-700 hover:text-purple-700 transition-colors">
+    <input
+      type="checkbox"
+      checked={rememberMe}
+      onChange={(e) => setRememberMe(e.target.checked)}
+      className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-gray-300 cursor-pointer accent-purple-600"
+    />
+    <span>تذكرني على هذا الجهاز</span>
+  </label>
+  <span className="text-[10px] text-gray-400 font-medium">
+    {rememberMe ? 'يبقى الحساب مسجلاً' : 'خروج عند إغلاق المتصفح'}
+  </span>
 </div>
 
 <button

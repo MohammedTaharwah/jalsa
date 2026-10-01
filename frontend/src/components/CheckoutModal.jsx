@@ -85,7 +85,7 @@ export const CheckoutModal = ({
     setErrorMsg('');
 
     try {
-      const token = localStorage.getItem('jalsah_access_token');
+      const token = localStorage.getItem('jalsah_access_token') || sessionStorage.getItem('jalsah_access_token');
       const res = await fetch(`${API_BASE}/payment/create-order`, {
         method: 'POST',
         headers: {
@@ -114,7 +114,7 @@ export const CheckoutModal = ({
     setErrorMsg('');
 
     try {
-      const token = localStorage.getItem('jalsah_access_token');
+      const token = localStorage.getItem('jalsah_access_token') || sessionStorage.getItem('jalsah_access_token');
       const res = await fetch(`${API_BASE}/payment/capture-order`, {
         method: 'POST',
         headers: {
