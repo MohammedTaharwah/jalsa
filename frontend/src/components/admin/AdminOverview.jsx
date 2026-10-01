@@ -35,7 +35,15 @@ export const AdminOverview = ({ onNavigateTab }) => {
   const [dashConfig, setDashConfig] = useState(() => {
     try {
       const saved = localStorage.getItem(DASHBOARD_CONFIG_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.customSales === '70.24' || parsed.customSales === '70' || Number(parsed.customSales) === 70.24) {
+          parsed.customSales = '';
+          parsed.isOverrideActive = false;
+          localStorage.removeItem(DASHBOARD_CONFIG_KEY);
+        }
+        return parsed;
+      }
     } catch (e) {}
     return {
       currencySymbol: '$',
@@ -158,7 +166,7 @@ export const AdminOverview = ({ onNavigateTab }) => {
       icon: TrendingUp,
       color: 'from-emerald-500 to-teal-600',
       lightBg: 'bg-emerald-50 text-emerald-600 border-emerald-200',
-      badge: dashConfig.salesGrowthText || (displaySales > 0 ? `${data?.total_paypal_orders || 1} مدفوعات PayPal ✅` : '0 مدفوعات PayPal')
+      badge: dashConfig.salesGrowthText || ((data?.total_paypal_orders > 0) ? `${data.total_paypal_orders} مدفوعات PayPal ✅` : '0 مدفوعات PayPal')
     },
     {
       title: 'عدد المستخدمين المسجلين',
