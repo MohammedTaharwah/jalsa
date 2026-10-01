@@ -261,22 +261,6 @@ const mappedCategories = databaseCategories.map((category, idx) => ({
 }));
 
 setAvailableCategories(mappedCategories);
-setTeam1Categories(prev1 => {
-  if (prev1 && prev1.length > 0) return prev1;
-  if (mappedCategories.length >= 6) {
-    return mappedCategories.slice(0, 3).map((c) => c.id);
-  }
-  const half = Math.ceil(mappedCategories.length / 2);
-  return mappedCategories.slice(0, half).map((c) => c.id);
-});
-setTeam2Categories(prev2 => {
-  if (prev2 && prev2.length > 0) return prev2;
-  if (mappedCategories.length >= 6) {
-    return mappedCategories.slice(3, 6).map((c) => c.id);
-  }
-  const half = Math.ceil(mappedCategories.length / 2);
-  return mappedCategories.slice(half).map((c) => c.id);
-});
 } catch (error) {
 setCategoriesError(error.message || 'تعذر تحميل الفئات.');
 } finally {
@@ -884,6 +868,27 @@ className="space-y-5"
 </div>
 
 <div className="flex items-center gap-2">
+{(team1Categories.length > 0 || team2Categories.length > 0) && (
+  <button
+    type="button"
+    onClick={() => {
+      setTeam1Categories([]);
+      setTeam2Categories([]);
+      setCategorySelectingTeam(0);
+      try {
+        localStorage.removeItem(SETUP_T1_CATS_KEY);
+        localStorage.removeItem(SETUP_T2_CATS_KEY);
+        sessionStorage.removeItem(SETUP_T1_CATS_KEY);
+        sessionStorage.removeItem(SETUP_T2_CATS_KEY);
+      } catch (e) {}
+    }}
+    className="px-3 py-1 rounded-xl text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition flex items-center gap-1 active:scale-95 cursor-pointer"
+    title="إعادة تعيين وتصفير جميع الفئات المختارة"
+  >
+    <RotateCw className="w-3.5 h-3.5" />
+    <span>تصفير الاختيارات</span>
+  </button>
+)}
 <span className="px-3 py-1 rounded-xl bg-purple-50 text-purple-700 text-xs font-black border border-purple-200 shadow-xs">
 {team1Categories.length + team2Categories.length} من 6 فئات مكتملة
 </span>
@@ -1482,9 +1487,18 @@ currentStep === 1
 <button
 type="button"
 onClick={nextStep}
-className="px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-2 shadow-md shadow-purple-500/20 active:scale-95 transition-all"
+disabled={currentStep === 2 && (team1Categories.length < 3 || team2Categories.length < 3)}
+className={`px-6 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all ${
+  currentStep === 2 && (team1Categories.length < 3 || team2Categories.length < 3)
+    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+    : 'bg-purple-600 hover:bg-purple-700 text-white shadow-md shadow-purple-500/20 active:scale-95'
+}`}
 >
-<span>التالي</span>
+<span>
+  {currentStep === 2 && (team1Categories.length < 3 || team2Categories.length < 3)
+    ? `اختر الفئات أولاً (${team1Categories.length + team2Categories.length}/6)`
+    : 'التالي'}
+</span>
 <ChevronLeft className="w-4 h-4" />
 </button>
 ) : (
