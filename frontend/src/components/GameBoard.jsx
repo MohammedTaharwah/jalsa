@@ -83,8 +83,39 @@ confirmSecretBet,
 cancelSecretBet,
 finalRoundModalOpen,
 finalRoundQuestion,
-resolveFinalRound
+resolveFinalRound,
+gameStage,
+hasAvailableTilesForTeam,
+unlockRemainingTiles,
+endGame,
+skipTurn,
+nextTurn
 } = useGameStore();
+
+// Auto-recovery: فك تعليق اللعبة تلقائياً إذا نفدت أسئلة الفريق صاحب الدور الحالي
+useEffect(() => {
+  if (gameStage === 'playing' && board && board.length > 0 && !questionModalOpen && !wheelModalOpen) {
+    const allUnused = board.flatMap(col => (col.tiles || []).filter(t => !t.isUsed && t.is_available !== false));
+    if (allUnused.length === 0) {
+      endGame();
+      return;
+    }
+
+    // هل يمتلك الفريق صاحب الدور الحالي أي أسئلة يمكنه اختيارها؟
+    const currentTeamHasMoves = hasAvailableTilesForTeam(currentTurn);
+    if (!currentTeamHasMoves) {
+      // فحص هل الفريق الآخر يمتلك أسئلة متاحة؟
+      const otherTeamHasMoves = teams.some((_, idx) => idx !== currentTurn && hasAvailableTilesForTeam(idx));
+      if (otherTeamHasMoves) {
+        // تحويل الدور تلقائياً للفريق الذي يمتلك أسئلة متاحة!
+        nextTurn();
+      } else {
+        // كلا الفريقين مقفل أمامهما المربعات المتبقية -> فك قفل المربعات المتبقية فوراً!
+        unlockRemainingTiles();
+      }
+    }
+  }
+}, [currentTurn, board, questionModalOpen, wheelModalOpen, gameStage]);
 
 // If board not yet created (e.g. refreshed page directly on board stage), initialize it
 useEffect(() => {
@@ -406,6 +437,28 @@ title={isTimerEnabled ? "المؤقت مفعّل (30ث/10ث) - اضغط للإل
 <span>{isTimerEnabled ? 'المؤقت 30ث' : 'وقت مفتوح'}</span>
 </button>
 
+{/* Skip Turn Action */}
+<button
+  type="button"
+  onClick={skipTurn}
+  className="px-2 py-1 rounded-xl text-[11px] font-black flex items-center gap-1 border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all cursor-pointer shadow-2xs active:scale-95"
+  title="تخطي الدور للفريق الآخر"
+>
+  <ArrowRight className="w-3.5 h-3.5" />
+  <span>تخطي الدور</span>
+</button>
+
+{/* End Game Action */}
+<button
+  type="button"
+  onClick={endGame}
+  className="px-2.5 py-1 rounded-xl text-[11px] font-black flex items-center gap-1 border border-amber-300 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-amber-950 transition-all cursor-pointer shadow-xs active:scale-95"
+  title="إنهاء الجلسة فوراً وتتويج الفائز"
+>
+  <Trophy className="w-3.5 h-3.5 text-amber-900" />
+  <span>إنهاء اللعبة 🏆</span>
+</button>
+
 {/* Restart Session Action */}
 <button
 onClick={resetGame}
@@ -417,6 +470,57 @@ title="إنهاء وبدء جلسة جديدة"
 </div>
 </div>
 </div>
+
+{/* ================= EXHAUSTED TEAM HELPER BANNER ================= */}
+<AnimatePresence>
+{!hasAvailableTilesForTeam(currentTurn) && !questionModalOpen && !wheelModalOpen && (
+  <motion.div
+    initial={{ opacity: 0, y: -10, scale: 0.98 }}
+    animate={{ opacity: 1, y: 0, scale: 1 }}
+    exit={{ opacity: 0, y: -10, scale: 0.98 }}
+    className="w-full max-w-7xl mx-auto mb-1 p-2 rounded-2xl bg-gradient-to-r from-amber-600 via-orange-600 to-rose-600 text-white shadow-md border border-amber-300 flex items-center justify-between gap-3 shrink-0"
+  >
+    <div className="flex items-center gap-2">
+      <AlertCircle className="w-5 h-5 text-amber-200 shrink-0" />
+      <div>
+        <h4 className="text-xs font-black text-amber-100">نفدت الأسئلة المتاحة لفريق [{currentTeam.name}]!</h4>
+        <p className="text-[10px] text-amber-50 font-bold">
+          يمكنك تخطي الدور للفريق الآخر، فك قفل الأسئلة المتبقية، أو إنهاء اللعبة وتتويج الفائز بالنتيجة الحالية.
+        </p>
+      </div>
+    </div>
+    <div className="flex items-center gap-1.5 shrink-0">
+      <button
+        type="button"
+        onClick={skipTurn}
+        className="px-2.5 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white text-[10px] font-black flex items-center gap-1 shadow-sm transition-all cursor-pointer"
+        title="تحويل الدور للفريق التالي"
+      >
+        <ArrowRight className="w-3 h-3" />
+        <span>تخطي الدور</span>
+      </button>
+      <button
+        type="button"
+        onClick={unlockRemainingTiles}
+        className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black flex items-center gap-1 shadow-sm transition-all cursor-pointer"
+        title="فك قفل الأسئلة المتبقية للجميع"
+      >
+        <Lock className="w-3 h-3" />
+        <span>فك قفل المتبقي</span>
+      </button>
+      <button
+        type="button"
+        onClick={endGame}
+        className="px-2.5 py-1 rounded-lg bg-amber-400 hover:bg-amber-300 text-amber-950 text-[10px] font-black flex items-center gap-1 shadow-sm transition-all cursor-pointer"
+        title="إنهاء الجلسة فوراً وتتويج الفائز"
+      >
+        <Trophy className="w-3 h-3" />
+        <span>إنهاء اللعبة 🏆</span>
+      </button>
+    </div>
+  </motion.div>
+)}
+</AnimatePresence>
 
 {/* ================= WHEEL CHALLENGE HIGH-ALERT BANNER ================= */}
 <AnimatePresence>

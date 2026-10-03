@@ -21,31 +21,10 @@ export const SetupScreen = () => {
     setTeams(prev => prev.map(t => t.id === id ? { ...t, name: newName } : t));
   };
 
-  const addTeam = () => {
-    if (teams.length >= 4) return;
-    const nextIdx = teams.length;
-    const palette = TEAM_PALETTES[nextIdx];
-    const defaultNames = ['فريق الذئاب', 'فريق الصواعق'];
-    setTeams(prev => [
-      ...prev,
-      {
-        id: nextIdx + 1,
-        name: defaultNames[nextIdx - 2] || `فريق ${nextIdx + 1}`,
-        color: palette.color,
-        emoji: palette.emoji
-      }
-    ]);
-  };
-
-  const removeTeam = (id) => {
-    if (teams.length <= 2) return;
-    setTeams(prev => prev.filter(t => t.id !== id));
-  };
-
   const handleStart = (e) => {
     e.preventDefault();
-    // Validate team names
-    const validatedTeams = teams.map((t, idx) => ({
+    // Validate team names (strictly 2 teams)
+    const validatedTeams = teams.slice(0, 2).map((t, idx) => ({
       ...t,
       name: t.name.trim() || `فريق ${idx + 1}`
     }));
@@ -63,7 +42,7 @@ export const SetupScreen = () => {
           إعداد الجلسة والتحدي 🎯
         </h2>
         <p className="text-purple-200/80 text-base max-w-xl mx-auto">
-          اختر أسماء الفرق المشاركة على نفس الشاشة، حدد طول الجولة، واستعد لأقوى الأسئلة والمفاجآت التكتيكية!
+          اختر أسماء الفريقين المتنافسين، حدد طول الجولة، واستعد لأقوى الأسئلة والمفاجآت التكتيكية!
         </p>
       </div>
 
@@ -75,23 +54,17 @@ export const SetupScreen = () => {
               <span className="text-2xl">👥</span>
               <div>
                 <h3 className="text-xl font-bold text-white">الفرق المتنافسة</h3>
-                <p className="text-xs text-purple-300/70">حدد أسماء الفرق المتنافسة (من فريقين إلى 4 فرق)</p>
+                <p className="text-xs text-purple-300/70">حدد أسماء الفريقين المتنافسين (المواجهة ثنائية حصرية - فريقان فقط)</p>
               </div>
             </div>
 
-            {teams.length < 4 && (
-              <button
-                type="button"
-                onClick={addTeam}
-                className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-purple-600/30"
-              >
-                <span>➕</span> إضافة فريق
-              </button>
-            )}
+            <span className="px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-bold">
+              فريقان فقط ⚔️
+            </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {teams.map((team, idx) => {
+            {teams.slice(0, 2).map((team, idx) => {
               const palette = TEAM_PALETTES[idx] || TEAM_PALETTES[0];
               return (
                 <div
@@ -104,16 +77,6 @@ export const SetupScreen = () => {
                       <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${palette.badge}`}>
                         فريق #{idx + 1}
                       </span>
-                      {teams.length > 2 && (
-                        <button
-                          type="button"
-                          onClick={() => removeTeam(team.id)}
-                          className="text-red-400 hover:text-red-300 text-xs p-1"
-                          title="حذف الفريق"
-                        >
-                          ✕
-                        </button>
-                      )}
                     </div>
                   </div>
 

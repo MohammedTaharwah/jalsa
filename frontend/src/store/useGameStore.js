@@ -808,17 +808,89 @@ confetti({ particleCount: 50, spread: 50 });
 },
 
 /**
-* قاعدة القفل الديناميكية (Dynamic Locking Rule):
-* هل هذا المستوى (points) مقفل للفريق صاحب الدور الحالي في هذه الفئة (categoryId)؟
-*/
-isLockedForCurrentTeam: (categoryId, points) => {
-const { teams, currentTurn, teamLevelPicks } = get();
-const currentTeam = teams[currentTurn];
-if (!currentTeam || !teamLevelPicks || teamLevelPicks.length === 0) return false;
-return teamLevelPicks.some(
-p => p.teamId === currentTeam.id && p.categoryId === categoryId && p.points === points
-);
+ * هل المربع محدد ومقفل لفريق معين؟
+ * جميع المربعات غير المجابة مفتوحة ومتاحة لكلا الفريقين بالتساوي لمنع نفاد الأسئلة لأي فريق قبل الآخر.
+ */
+isTileLockedForTeam: () => false,
+
+/**
+ * حساب عدد المربعات المتاحة لفريق معين
+ */
+countAvailableTilesForTeam: (teamIndex) => {
+  const { board } = get();
+  if (!board || board.length === 0) return 0;
+  return board.reduce((acc, col) => 
+    acc + (col.tiles || []).filter(t => !t.isUsed && t.is_available !== false).length,
+    0
+  );
 },
+
+/**
+ * هل يمتلك الفريق أي مربعات متاحة غير مقفلة للاختيار؟
+ */
+hasAvailableTilesForTeam: (teamIndex) => {
+  return get().countAvailableTilesForTeam(teamIndex) > 0;
+},
+
+/**
+ * فك قفل الأسئلة المتبقية باللوحة عند تعثر الفرق
+ */
+unlockRemainingTiles: () => {
+  set({
+    teamLevelPicks: [],
+    gameBanner: {
+      type: 'info',
+      title: '🔓 جميع الأسئلة متاحة!',
+      message: 'كافة الأسئلة المتبقية باللوحة مفتوحة لكلا الفريقين بالتساوي!'
+    }
+  });
+  persistActiveGame(get());
+},
+
+/**
+ * إنهاء الجلسة فوراً وتتويج الفائز
+ */
+endGame: () => {
+  const { teams } = get();
+  confetti({ particleCount: 220, spread: 100, origin: { y: 0.5 } });
+
+  const sorted = [...teams].sort((a, b) => b.score - a.score);
+  const isTie = sorted.length > 1 && sorted[0].score === sorted[1].score;
+
+  if (isTie) {
+    get().startFinalRound();
+    return;
+  }
+
+  set({
+    gameStage: 'game_over',
+    questionModalOpen: false,
+    activeTile: null,
+    activeQuestion: null,
+    isStealMode: false,
+    isWheelChallengeActive: false,
+    activeModifier: null,
+    gameBanner: {
+      type: 'wheel_win',
+      title: '🏆 انتهت الجلسة!',
+      message: `ألف مبروك لفريق [${sorted[0]?.name}] التتويج بلقب جلسة اليوم بنتيجة ${sorted[0]?.score} نقطة!`
+    }
+  });
+  persistActiveGame(get());
+},
+
+/**
+ * تخطي الدور يدوياً
+ */
+skipTurn: () => {
+  get().nextTurn();
+},
+
+/**
+* قاعدة القفل:
+* جميع الأسئلة غير المجابة مفتوحة ومتاحة لكلا الفريقين في أدوارهما بالتساوي.
+*/
+isLockedForCurrentTeam: () => false,
 
 /**
  * تفعيل ميزة "تحدي العجلة" (Wheel Challenge)
@@ -1700,75 +1772,92 @@ handleAnswer(isCorrect);
 
 /**
 * منطق تناوب الأدوار (Turn Logic):
-* دالة nextTurn تقوم بنقل اللعب للفريق التالي تلقائياً
+* دالة nextTurn تقوم بنقل اللعب للفريق التالي الذي يمتلك أسئلة متاحة،
+* وتفك قفل الأسئلة المتبقية عند تعثر الجميع، وتنهي اللعبة فور اكتمال الأسئلة.
 */
 nextTurn: () => {
-const { teams, currentTurn, board } = get();
+  const { teams, currentTurn, board } = get();
 
-// Check if game is completed (all tiles used)
-const remainingTiles = board.reduce(
-(acc, col) => acc + col.tiles.filter(t => !t.isUsed && t.is_available !== false).length,
-0
-);
+  // 1. فحص إجمالي المربعات غير المستخدمة والمتاحة في اللوحة
+  const allUnusedTiles = (board || []).flatMap(col =>
+    (col.tiles || []).filter(t => !t.isUsed && t.is_available !== false)
+  );
 
-if (remainingTiles === 0) {
-confetti({ particleCount: 220, spread: 100, origin: { y: 0.5 } });
+  // إذا لم يتبق أي مربع غير مستخدم في اللوحة -> تنتهي اللعبة فوراً!
+  if (allUnusedTiles.length === 0) {
+    get().endGame();
+    return;
+  }
 
-// فحص التعادل: الجولة النهائية الحاسمة في حالة التعادل فقط!
-const sorted = [...teams].sort((a, b) => b.score - a.score);
-const isTie = sorted.length > 1 && sorted[0].score === sorted[1].score;
+  // 2. التحقق مما إذا كان هناك أي فريق يمتلك مربعات متاحة بشكل قانوني
+  const anyTeamHasMoves = teams.some((_, idx) => get().hasAvailableTilesForTeam(idx));
 
-if (isTie) {
-get().startFinalRound();
-return;
-}
+  if (!anyTeamHasMoves) {
+    // جميع المربعات المتبقية مقفلة لجميع الفرق!
+    // نقوم بفك قفل المربعات المتبقية تلقائياً حتى يتمكن اللاعبون من إنهاء الأسئلة المتبقية!
+    get().unlockRemainingTiles();
+  }
 
-set({
-gameStage: 'game_over',
-questionModalOpen: false,
-activeTile: null,
-activeQuestion: null,
-isStealMode: false,
-isWheelChallengeActive: false,
-activeModifier: null
-});
-persistActiveGame(get());
-return;
-}
+  // 3. البحث عن الفريق التالي الذي يمتلك أسئلة متاحة للعب
+  let nextIndex = (currentTurn + 1) % teams.length;
+  let checkedCount = 0;
+  let foundPlayableTeam = false;
 
-// Advance to next team
-let nextIndex = (currentTurn + 1) % teams.length;
-let nextTeam = teams[nextIndex];
+  while (checkedCount < teams.length) {
+    if (get().hasAvailableTilesForTeam(nextIndex)) {
+      foundPlayableTeam = true;
+      break;
+    }
+    nextIndex = (nextIndex + 1) % teams.length;
+    checkedCount++;
+  }
 
-let banner = null;
-if (nextTeam.isFrozen) {
-banner = {
-type: 'frozen_turn',
-title: 'تنبيه التجميد!',
-message: `دور [${nextTeam.name}] الآن، ولكنه مجمّد ومحروم من استخدام الأسلحة المساعدة في هذا الدور!`
-};
-set(state => ({
-teams: state.teams.map((t, idx) => idx === nextIndex ? { ...t, isFrozen: false } : t)
-}));
-}
+  if (!foundPlayableTeam) {
+    // إذا لم يتبق أي فريق يمكنه اللعب -> تنتهي اللعبة فوراً!
+    get().endGame();
+    return;
+  }
 
-set({
-currentTurn: nextIndex,
-activeTeamIndex: nextIndex,
-activeTile: null,
-activeQuestion: null,
-questionModalOpen: false,
-selectedOption: null,
-isAnswerRevealed: false,
-isCorrect: null,
-eliminatedOptions: [],
-activeModifier: null,
-selectedWheelOption: null,
-isStealMode: false,
-isWheelChallengeActive: false,
-gameBanner: banner
-});
-persistActiveGame(get());
+  const immediateNext = (currentTurn + 1) % teams.length;
+  let skipBanner = null;
+  if (nextIndex !== immediateNext) {
+    skipBanner = {
+      type: 'info',
+      title: 'تخطي الدور تلقائياً ⏭️',
+      message: `نفدت الأسئلة المتاحة لفريق [${teams[immediateNext]?.name}]، تم تحويل الدور تلقائياً إلى [${teams[nextIndex]?.name}]!`
+    };
+  }
+
+  let nextTeam = teams[nextIndex];
+  let banner = skipBanner;
+  if (nextTeam.isFrozen) {
+    banner = {
+      type: 'frozen_turn',
+      title: 'تنبيه التجميد!',
+      message: `دور [${nextTeam.name}] الآن، ولكنه مجمّد ومحروم من استخدام الأسلحة المساعدة في هذا الدور!`
+    };
+    set(state => ({
+      teams: state.teams.map((t, idx) => idx === nextIndex ? { ...t, isFrozen: false } : t)
+    }));
+  }
+
+  set({
+    currentTurn: nextIndex,
+    activeTeamIndex: nextIndex,
+    activeTile: null,
+    activeQuestion: null,
+    questionModalOpen: false,
+    selectedOption: null,
+    isAnswerRevealed: false,
+    isCorrect: null,
+    eliminatedOptions: [],
+    activeModifier: null,
+    selectedWheelOption: null,
+    isStealMode: false,
+    isWheelChallengeActive: false,
+    gameBanner: banner || get().gameBanner
+  });
+  persistActiveGame(get());
 },
 
 /**

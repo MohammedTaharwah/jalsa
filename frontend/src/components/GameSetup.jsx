@@ -177,11 +177,14 @@ const [isLaunching, setIsLaunching] = useState(false);
 // Questions Exhaustion Alert State
 const [exhaustionAlert, setExhaustionAlert] = useState(null);
 
-// Step 1: Teams State with Loadout (2 powerups per team) - persisted across refresh
+// Step 1: Teams State with Loadout (2 powerups per team) - persisted across refresh (strictly 2 teams)
 const [teams, setTeams] = useState(() => {
 try {
 const saved = localStorage.getItem(SETUP_TEAMS_KEY) || sessionStorage.getItem(SETUP_TEAMS_KEY);
-if (saved) return JSON.parse(saved);
+if (saved) {
+  const parsed = JSON.parse(saved);
+  if (Array.isArray(parsed) && parsed.length >= 2) return parsed.slice(0, 2);
+}
 } catch (e) {}
 return [
 { id: 1, name: 'فريق الصقور', iconName: 'Shield', color: 'purple', loadout: ['double', 'steal'] },
@@ -344,26 +347,8 @@ loadout: [...currentLoadout, powerupId]
 }));
 };
 
-const addTeam = () => {
-if (teams.length >= 4) return;
-const nextId = teams.length + 1;
-const config = TEAM_CONFIGS[nextId - 1] || TEAM_CONFIGS[0];
-setTeams(prev => [
-...prev,
-{
-id: nextId,
-name: config.defaultName,
-iconName: config.iconName,
-color: config.colorName === 'زمردي' ? 'emerald' : 'pink',
-loadout: ['double', 'steal']
-}
-]);
-};
+// Strictly 2 teams enforced
 
-const removeTeam = (id) => {
-if (teams.length <= 2) return;
-setTeams(prev => prev.filter(t => t.id !== id));
-};
 
 // Turn-based Category toggle
 const toggleCategory = (catId) => {
@@ -766,24 +751,16 @@ className="space-y-6"
 الفرق المتنافسة
 </h2>
 <p className="text-xs text-slate-500 mt-0.5">
-أضف أسماء الفرق (من فريقين إلى 4 فرق)
+تحديد أسماء وتجهيزات الفريقين المتنافسين (المواجهة ثنائية حصرية - فريقان فقط)
 </p>
 </div>
-
-{teams.length < 4 && (
-<button
-type="button"
-onClick={addTeam}
-className="px-4 py-2 rounded-2xl bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200/80 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
->
-<Plus className="w-4 h-4" />
-<span>إضافة فريق</span>
-</button>
-)}
+<span className="px-3 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200 text-xs font-black">
+فريقان فقط ⚔️
+</span>
 </div>
 
 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-{teams.map((team, index) => {
+{teams.slice(0, 2).map((team, index) => {
 const cfg = TEAM_CONFIGS[index] || TEAM_CONFIGS[0];
 return (
 <motion.div
@@ -796,16 +773,6 @@ className={`p-4 rounded-3xl border-2 transition-all ${cfg.bgLight} ${cfg.border}
 <span className={`text-xs font-black ${cfg.accentText}`}>
 الفريق {index + 1}
 </span>
-{teams.length > 2 && (
-<button
-type="button"
-onClick={() => removeTeam(team.id)}
-className="text-slate-400 hover:text-rose-500 transition-colors p-1"
-title="حذف الفريق"
->
-<Trash2 className="w-4 h-4" />
-</button>
-)}
 </div>
 
 <div className="flex items-center gap-3">
