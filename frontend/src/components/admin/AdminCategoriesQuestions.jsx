@@ -88,6 +88,7 @@ export const AdminCategoriesQuestions = () => {
   const [toastMsg, setToastMsg] = useState(null);
   const [isImporting, setIsImporting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [previewBlur, setPreviewBlur] = useState('auto'); // 'auto' | 0 | 200 | 400 | 600
 
   const fileInputRef = React.useRef(null);
   const catFileInputRef = React.useRef(null);
@@ -1251,41 +1252,85 @@ export const AdminCategoriesQuestions = () => {
                     </div>
 
                     {qForm.media_url && (
-                      <div className="mt-2 p-3 bg-purple-50/50 border border-purple-100 rounded-2xl flex items-center gap-3">
-                        {isAudioUrl(qForm.media_url) ? (
-                          <div className="flex-1">
-                            <audio controls className="w-full h-8" src={getMediaUrl(qForm.media_url)}>
-                              متصفحك لا يدعم تشغيل الصوت
-                            </audio>
+                      <div className="mt-2 p-3 bg-purple-50/50 border border-purple-100 rounded-2xl flex flex-col gap-2">
+                        <div className="flex items-center gap-3">
+                          {isAudioUrl(qForm.media_url) ? (
+                            <div className="flex-1">
+                              <audio controls className="w-full h-8" src={getMediaUrl(qForm.media_url)}>
+                                متصفحك لا يدعم تشغيل الصوت
+                              </audio>
+                            </div>
+                          ) : (
+                            <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-purple-200 bg-slate-900/10 shrink-0 shadow-xs flex items-center justify-center">
+                              <img
+                                src={getMediaUrl(qForm.media_url)}
+                                alt="معاينة صورة السؤال"
+                                style={{
+                                  filter: `blur(${
+                                    previewBlur === 'auto'
+                                      ? (qForm.points_level === 200 ? '5px' : qForm.points_level === 400 ? '13px' : '25px')
+                                      : (previewBlur === 0 ? '0px' : previewBlur === 200 ? '5px' : previewBlur === 400 ? '13px' : '25px')
+                                  })`,
+                                  transition: 'filter 0.4s ease'
+                                }}
+                                className="w-full h-full object-contain p-1"
+                                onError={(e) => {
+                                  e.currentTarget.src = 'https://via.placeholder.com/150?text=Error';
+                                }}
+                              />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0 text-right">
+                            <p className="text-xs font-bold text-slate-800 truncate">
+                              {isAudioUrl(qForm.media_url) ? '🎵 ملف صوتي مرفق' : '🖼️ صورة مرفقة بالسؤال'}
+                            </p>
+                            <p className="text-[10px] text-slate-400 truncate font-mono" dir="ltr">
+                              {qForm.media_url.startsWith('data:') ? 'صورة مرفوعة ومحفوظة بنجاح' : qForm.media_url}
+                            </p>
+                            {!isAudioUrl(qForm.media_url) && (
+                              <p className="text-[10px] text-purple-700 font-bold mt-1">
+                                {previewBlur === 0 ? '🔍 المعاينة: صورة واضحة (كشف الإجابة)' : `🎯 المعاينة: تغبيش مستوى ${previewBlur === 'auto' ? qForm.points_level : previewBlur}ن`}
+                              </p>
+                            )}
                           </div>
-                        ) : (
-                          <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-purple-200 bg-white shrink-0 shadow-xs">
-                            <img
-                              src={getMediaUrl(qForm.media_url)}
-                              alt="معاينة صورة السؤال"
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.currentTarget.src = 'https://via.placeholder.com/150?text=Error';
-                              }}
-                            />
+                          <button
+                            type="button"
+                            onClick={() => setQForm({ ...qForm, media_url: '' })}
+                            className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-xs font-bold transition cursor-pointer self-start"
+                            title="إزالة الصورة"
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        {/* Interactive Blur Controls for Image Preview */}
+                        {!isAudioUrl(qForm.media_url) && (
+                          <div className="pt-2 border-t border-purple-100/80 flex items-center justify-between gap-1 text-[10px]">
+                            <span className="font-bold text-slate-600">تجربة التغبيش:</span>
+                            <div className="flex items-center gap-1">
+                              {[
+                                { id: 0, label: 'واضحة 0px' },
+                                { id: 200, label: '200ن (خفيف)' },
+                                { id: 400, label: '400ن (وسط)' },
+                                { id: 600, label: '600ن (قوي)' },
+                                { id: 'auto', label: 'تلقائي حسب السؤال' }
+                              ].map(b => (
+                                <button
+                                  key={b.id}
+                                  type="button"
+                                  onClick={() => setPreviewBlur(b.id)}
+                                  className={`px-2 py-0.5 rounded-md font-bold transition cursor-pointer ${
+                                    previewBlur === b.id
+                                      ? 'bg-purple-600 text-white shadow-2xs'
+                                      : 'bg-white text-slate-600 hover:bg-purple-100/60 border border-purple-100'
+                                  }`}
+                                >
+                                  {b.label}
+                                </button>
+                              ))}
+                            </div>
                           </div>
                         )}
-                        <div className="flex-1 min-w-0 text-right">
-                          <p className="text-xs font-bold text-slate-800 truncate">
-                            {isAudioUrl(qForm.media_url) ? '🎵 ملف صوتي مرفق' : '🖼️ صورة مرفقة بالسؤال'}
-                          </p>
-                          <p className="text-[10px] text-slate-400 truncate font-mono" dir="ltr">
-                            {qForm.media_url.startsWith('data:') ? 'صورة مرفوعة ومحفوظة بنجاح' : qForm.media_url}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setQForm({ ...qForm, media_url: '' })}
-                          className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-xs font-bold transition cursor-pointer"
-                          title="إزالة الصورة"
-                        >
-                          ✕
-                        </button>
                       </div>
                     )}
 

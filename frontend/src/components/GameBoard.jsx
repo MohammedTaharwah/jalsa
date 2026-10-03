@@ -910,18 +910,57 @@ timeLeft <= (reboundState.isActive ? 3 : 5) ? 'text-rose-600 animate-pulse' : 't
         </audio>
       </div>
     ) : (
-      <div className="relative max-w-sm rounded-2xl overflow-hidden border border-slate-200 shadow-md group">
-        <img
-          src={getMediaUrl(activeQuestion.media_url)}
-          alt="صورة السؤال"
-          className="w-full max-h-48 sm:max-h-56 object-cover rounded-2xl transition-transform duration-300 group-hover:scale-105"
-          onError={(e) => { e.currentTarget.style.display = 'none'; }}
-        />
-        <div className="absolute bottom-2 right-2 px-2.5 py-0.5 rounded-full bg-slate-900/70 backdrop-blur-xs text-white text-[10px] font-bold flex items-center gap-1">
-          <ImageIcon className="w-3 h-3" />
-          <span>خمّن الصورة 🖼️</span>
-        </div>
-      </div>
+      (() => {
+        const pts = activeTile?.points || activeQuestion.points || 200;
+        // Blur level based on points: 200 -> 5px (light), 400 -> 13px (medium), 600 -> 25px (heavy)
+        const blurAmount = isAnswerRevealed
+          ? '0px'
+          : pts === 200
+          ? '5px'
+          : pts === 400
+          ? '13px'
+          : '25px';
+
+        return (
+          <div className="relative max-w-sm rounded-2xl overflow-hidden border border-slate-200/90 shadow-lg bg-slate-900/5 group">
+            <img
+              src={getMediaUrl(activeQuestion.media_url)}
+              alt="صورة السؤال"
+              style={{
+                filter: `blur(${blurAmount})`,
+                transition: 'filter 0.8s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s ease'
+              }}
+              className="w-full max-h-52 sm:max-h-60 object-contain p-2 rounded-2xl transform-gpu select-none"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+
+            {/* Blur Intensity / Reveal Badge */}
+            <div className={`absolute bottom-2.5 right-2.5 px-3 py-1 rounded-full text-white text-[11px] font-black flex items-center gap-1.5 shadow-md backdrop-blur-md transition-all duration-500 ${
+              isAnswerRevealed
+                ? 'bg-emerald-600/95 ring-2 ring-emerald-400/60 scale-105'
+                : 'bg-slate-950/80 ring-1 ring-white/20'
+            }`}>
+              <ImageIcon className="w-3.5 h-3.5" />
+              <span>
+                {isAnswerRevealed
+                  ? '✨ تم كشف الصورة!'
+                  : pts === 200
+                  ? '🔍 تغبيش خفيف (200ن)'
+                  : pts === 400
+                  ? '🔍 تغبيش متوسط (400ن)'
+                  : '🔍 تغبيش قوي (600ن)'}
+              </span>
+            </div>
+
+            {/* Challenge Tag */}
+            {!isAnswerRevealed && (
+              <div className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-amber-500/90 backdrop-blur-xs text-[10px] text-white font-black shadow-xs flex items-center gap-1">
+                <span>تحدي التغبيش 🎯</span>
+              </div>
+            )}
+          </div>
+        );
+      })()
     )}
   </div>
 )}
