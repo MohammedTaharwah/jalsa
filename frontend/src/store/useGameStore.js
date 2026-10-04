@@ -1761,13 +1761,13 @@ persistActiveGame(get());
 /**
 * اختيار إجابة من الخيارات الأربعة
 */
-selectOption: (option) => {
+selectOption: (option, pointsOverride) => {
 const { isAnswerRevealed, activeQuestion, handleAnswer } = get();
 if (isAnswerRevealed || !activeQuestion) return;
 
 set({ selectedOption: option });
 const isCorrect = option === activeQuestion.correct_answer;
-handleAnswer(isCorrect);
+handleAnswer(isCorrect, pointsOverride);
 },
 
 /**

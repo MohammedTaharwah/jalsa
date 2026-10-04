@@ -39,6 +39,9 @@ const getMediaUrl = (url) => {
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
     return url;
   }
+  if (url.startsWith('/game-media/') || url.startsWith('/assets/')) {
+    return url;
+  }
   return `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
 };
 

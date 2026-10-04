@@ -38,6 +38,10 @@ const getMediaUrl = (url) => {
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
     return url;
   }
+  // If the media is stored in frontend public assets (like /game-media/ or /assets/)
+  if (url.startsWith('/game-media/') || url.startsWith('/assets/')) {
+    return url;
+  }
   return `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
 };
 
@@ -143,6 +147,10 @@ const [isExposedAnswerShown, setIsExposedAnswerShown] = useState(false);
 const [extraTimeUsed, setExtraTimeUsed] = useState(false);
 const [betInput, setBetInput] = useState(200);
 
+// Dynamic blur reduction during question modal
+// Initial is null (defaults to 600 points blur: 25px). Player can reduce to 13px (400ن) or 5px (200ن) with score trade-off!
+const [customBlurLevel, setCustomBlurLevel] = useState(null);
+
 const handleRequestExtraTime = () => {
   if (extraTimeUsed || !isTimerEnabled || isAnswerRevealed) return;
   setTimeLeft(prev => prev + 15);
@@ -154,6 +162,7 @@ useEffect(() => {
 if (!questionModalOpen || !activeTile) {
 setTimerActive(false);
 setExtraTimeUsed(false);
+setCustomBlurLevel(null);
 return;
 }
 
@@ -196,11 +205,15 @@ const strokeDashoffset = isTimerEnabled ? 100 - (timeLeft / currentMaxTime) * 10
 
 // Calculate effective points for display
 const getDisplayPoints = () => {
-if (!activeTile) return 200;
-if (reboundState.isActive && reboundState.basePoints) return reboundState.basePoints;
-if (activeModifier === 'double') return activeTile.points * 2;
-if (activeModifier === 'exposed') return activeTile.points * 3;
-return activeTile.points;
+  if (!activeTile) return 200;
+  if (reboundState.isActive && reboundState.basePoints) return reboundState.basePoints;
+  
+  // If player manually reduced blur on an image question, adjust points accordingly
+  let pts = customBlurLevel !== null ? customBlurLevel : activeTile.points;
+  
+  if (activeModifier === 'double') return pts * 2;
+  if (activeModifier === 'exposed') return pts * 3;
+  return pts;
 };
 
 return (
@@ -911,51 +924,102 @@ timeLeft <= (reboundState.isActive ? 3 : 5) ? 'text-rose-600 animate-pulse' : 't
       </div>
     ) : (
       (() => {
-        const pts = activeTile?.points || activeQuestion.points || 200;
-        // Blur level based on points: 200 -> 5px (light), 400 -> 13px (medium), 600 -> 25px (heavy)
+        // All image questions start at 600 points difficulty (heavy blur 25px) by default
+        // The player can opt to reduce blur for less points (400 or 200)
+        const currentEffectivePts = customBlurLevel !== null 
+          ? customBlurLevel 
+          : (activeTile?.points || activeQuestion.points || 600);
+
         const blurAmount = isAnswerRevealed
           ? '0px'
-          : pts === 200
+          : currentEffectivePts <= 200
           ? '5px'
-          : pts === 400
+          : currentEffectivePts <= 400
           ? '13px'
           : '25px';
 
         return (
-          <div className="relative max-w-sm rounded-2xl overflow-hidden border border-slate-200/90 shadow-lg bg-slate-900/5 group">
-            <img
-              src={getMediaUrl(activeQuestion.media_url)}
-              alt="صورة السؤال"
-              style={{
-                filter: `blur(${blurAmount})`,
-                transition: 'filter 0.8s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s ease'
-              }}
-              className="w-full max-h-52 sm:max-h-60 object-contain p-2 rounded-2xl transform-gpu select-none"
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-            />
+          <div className="flex flex-col items-center gap-2.5 w-full max-w-md">
+            <div className="relative w-full max-w-sm rounded-2xl overflow-hidden border border-slate-200/90 shadow-lg bg-slate-900/5 group">
+              <img
+                src={getMediaUrl(activeQuestion.media_url)}
+                alt="صورة السؤال"
+                style={{
+                  filter: `blur(${blurAmount})`,
+                  transition: 'filter 0.8s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s ease'
+                }}
+                className="w-full max-h-52 sm:max-h-60 object-contain p-2 rounded-2xl transform-gpu select-none"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
 
-            {/* Blur Intensity / Reveal Badge */}
-            <div className={`absolute bottom-2.5 right-2.5 px-3 py-1 rounded-full text-white text-[11px] font-black flex items-center gap-1.5 shadow-md backdrop-blur-md transition-all duration-500 ${
-              isAnswerRevealed
-                ? 'bg-emerald-600/95 ring-2 ring-emerald-400/60 scale-105'
-                : 'bg-slate-950/80 ring-1 ring-white/20'
-            }`}>
-              <ImageIcon className="w-3.5 h-3.5" />
-              <span>
-                {isAnswerRevealed
-                  ? '✨ تم كشف الصورة!'
-                  : pts === 200
-                  ? '🔍 تغبيش خفيف (200ن)'
-                  : pts === 400
-                  ? '🔍 تغبيش متوسط (400ن)'
-                  : '🔍 تغبيش قوي (600ن)'}
-              </span>
+              {/* Blur Intensity / Reveal Badge */}
+              <div className={`absolute bottom-2.5 right-2.5 px-3 py-1 rounded-full text-white text-[11px] font-black flex items-center gap-1.5 shadow-md backdrop-blur-md transition-all duration-500 ${
+                isAnswerRevealed
+                  ? 'bg-emerald-600/95 ring-2 ring-emerald-400/60 scale-105'
+                  : 'bg-slate-950/80 ring-1 ring-white/20'
+              }`}>
+                <ImageIcon className="w-3.5 h-3.5" />
+                <span>
+                  {isAnswerRevealed
+                    ? '✨ تم كشف الصورة!'
+                    : currentEffectivePts <= 200
+                    ? '🔍 وضوح عالي (تغبيش 200ن)'
+                    : currentEffectivePts <= 400
+                    ? '🔍 وضوح متوسط (تغبيش 400ن)'
+                    : '🔍 تغبيش كامل وتحدي (600ن)'}
+                </span>
+              </div>
+
+              {/* Challenge Tag */}
+              {!isAnswerRevealed && (
+                <div className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-amber-500/90 backdrop-blur-xs text-[10px] text-white font-black shadow-xs flex items-center gap-1">
+                  <span>تحدي التغبيش 🎯</span>
+                </div>
+              )}
             </div>
 
-            {/* Challenge Tag */}
-            {!isAnswerRevealed && (
-              <div className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-amber-500/90 backdrop-blur-xs text-[10px] text-white font-black shadow-xs flex items-center gap-1">
-                <span>تحدي التغبيش 🎯</span>
+            {/* Interactive Blur Reduction Controls */}
+            {!isAnswerRevealed && !reboundState.isActive && (
+              <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100/90 border border-slate-200/80 text-xs shadow-inner">
+                <span className="text-[11px] font-bold text-slate-500 px-2 flex items-center gap-1">
+                  👁️ درجة الوضوح:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCustomBlurLevel(600)}
+                  className={`px-2.5 py-1 rounded-lg font-black text-[11px] transition-all cursor-pointer ${
+                    (customBlurLevel === 600 || customBlurLevel === null)
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:bg-white'
+                  }`}
+                  title="تغبيش كامل مقابل 600 نقطة كاملة"
+                >
+                  صعب (600ن)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCustomBlurLevel(400)}
+                  className={`px-2.5 py-1 rounded-lg font-black text-[11px] transition-all cursor-pointer ${
+                    customBlurLevel === 400
+                      ? 'bg-amber-500 text-white shadow-xs'
+                      : 'text-slate-600 hover:bg-white'
+                  }`}
+                  title="تخفيف التغبيش لتوضيح الصورة مقابل خصم إلى 400 نقطة"
+                >
+                  توضيح (400ن)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCustomBlurLevel(200)}
+                  className={`px-2.5 py-1 rounded-lg font-black text-[11px] transition-all cursor-pointer ${
+                    customBlurLevel === 200
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:bg-white'
+                  }`}
+                  title="تخفيف التغبيش إلى أقصى حد مقابل خصم إلى 200 نقطة"
+                >
+                  كشف أكثر (200ن)
+                </button>
               </div>
             )}
           </div>
@@ -1135,7 +1199,7 @@ key={idx}
 whileHover={!isButtonDisabled ? { scale: 1.01 } : {}}
 whileTap={!isButtonDisabled ? { scale: 0.98 } : {}}
 disabled={isButtonDisabled}
-onClick={() => selectOption(option)}
+onClick={() => selectOption(option, customBlurLevel !== null ? getDisplayPoints() : undefined)}
 className={`p-4 sm:p-5 rounded-2xl font-bold text-base sm:text-lg text-right transition-all flex items-center justify-between gap-3 shadow-sm ${style}`}
 >
 <div className="flex items-center gap-3">
