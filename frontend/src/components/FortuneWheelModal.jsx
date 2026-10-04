@@ -10,7 +10,8 @@ ArrowRight,
 X,
 Dices,
 AlertTriangle,
-Trophy
+Trophy,
+Bomb
 } from 'lucide-react';
 import { useGameStore } from '../store/useGameStore';
 import { FORTUNE_WHEEL_OPTIONS } from '../data/categoriesData';
@@ -19,6 +20,7 @@ const getOptionIcon = (iconName) => {
 switch (iconName) {
 case 'Zap': return <Zap className="w-5 h-5 text-white" />;
 case 'Snowflake': return <Snowflake className="w-5 h-5 text-white" />;
+case 'Bomb': return <Bomb className="w-5 h-5 text-white" />;
 case 'Swords': return <Swords className="w-5 h-5 text-white" />;
 default: return <Sparkles className="w-5 h-5 text-white" />;
 }
@@ -240,7 +242,7 @@ style={{ backgroundColor: selectedWheelOption.color }}
 key={opt.id}
 className="px-2.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700/80 flex flex-col items-center justify-center text-[11px] font-bold text-slate-200 shadow-xs"
 >
-<span className="text-lg mb-0.5">{opt.emoji}</span>
+<div className="mb-1">{getOptionIcon(opt.icon)}</div>
 <span className="leading-tight font-black">{opt.label}</span>
 <span className="text-[9px] text-slate-400 mt-0.5">{opt.sublabel}</span>
 </div>

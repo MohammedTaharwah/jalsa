@@ -87,7 +87,7 @@ count: 18
 export const POWERUPS_CATALOG = [
   {
     id: 'double',
-    name: 'دبل النقاط ⚡',
+    name: 'دبل النقاط',
     shortName: 'دبل (x2)',
     desc: 'مضاعفة نقاط السؤال القادم مرتين عند الإجابة الصحيحة',
     iconName: 'Zap',
@@ -102,22 +102,22 @@ export const POWERUPS_CATALOG = [
   },
   {
     id: 'bomb',
-    name: 'قنبلة الوقت 💣',
+    name: 'قنبلة الوقت',
     shortName: 'قنبلة الوقت',
     desc: 'زرع قنبلة تقلص وقت إجابة الفريق الخصم إلى 15 ثانية فقط في دوره القادم!',
     iconName: 'Bomb',
     cost: 150,
     color: 'rose',
-    badge: '💣 15ث',
+    badge: '15ث',
     emoji: '💣',
     type: 'تخريب / هجومي',
     powerLevel: 5,
-    tacticHint: 'فجّرها قبل أن يختار الخصم سؤاله، لتربكه بالوقت القصير وتجبره على الخطأ في الأسئلة الصعبة!',
+    tacticHint: 'فجّرها قبل أن يختار الخصم سؤاله، لتربكه بالوقت القصير وتمنعه تماماً من طلب وقت إضافي!',
     bestFor: 'تشتيت الخصم والضغط النفسي'
   },
   {
     id: 'freeze',
-    name: 'تجميد الخصم ❄️',
+    name: 'تجميد الخصم',
     shortName: 'تجميد الخصم',
     desc: 'حرمان الفريق الخصم من استخدام أي سلاح تكتيكي أو مساعدة في دوره القادم',
     iconName: 'Snowflake',
@@ -132,7 +132,7 @@ export const POWERUPS_CATALOG = [
   },
   {
     id: 'fifty',
-    name: 'حذف إجابتين (50:50) 🎯',
+    name: 'حذف إجابتين (50:50)',
     shortName: 'حذف 50:50',
     desc: 'إلغاء خيارين خاطئين لرفع احتمالية الإجابة الصحيحة إلى 50%',
     iconName: 'HelpCircle',
@@ -147,7 +147,7 @@ export const POWERUPS_CATALOG = [
   },
   {
     id: 'time_boost',
-    name: 'طلب وقت إضافي (+15ث) ⏳',
+    name: 'طلب وقت إضافي (+15ث)',
     shortName: 'وقت إضافي',
     desc: 'إضافة 15 ثانية لمؤقت السؤال لمزيد من التفكير والنقاش الجماعي',
     iconName: 'Hourglass',
@@ -166,63 +166,62 @@ export const POWERUPS_CATALOG = [
 export const TACTICAL_PRESETS = [
   {
     id: 'balanced',
-    name: 'التشكيلة المتوازنة (موصى بها) ⚖️',
-    desc: 'توازن مثالي بين الهجوم والدفاع لكلا الفريقين',
+    name: 'التشكيلة المتوازنة (موصى بها)',
+    desc: 'توازن تكتيكي مثالي بين الهجوم والدفاع لكلا الفريقين',
     team1: ['double', 'bomb'], // فريق 1: مضاعفة + قنبلة
     team2: ['freeze', 'fifty'], // فريق 2: تجميد + 50:50
   },
   {
     id: 'chaos',
-    name: 'حرب تكتيكية شرسة 💣🔥',
-    desc: 'ضغط وقت وتجميد متبادل بين الفريقين لأقصى درجات الإثارة',
+    name: 'تحدي الضغط العالي',
+    desc: 'تقليص وقت وتجميد متبادل بين الفريقين لأقصى درجات الإثارة والسرعة',
     team1: ['bomb', 'freeze'],
     team2: ['bomb', 'double'],
   },
   {
     id: 'safety',
-    name: 'حاصدو النقاط والمعرفة 🎯💡',
-    desc: 'التركيز على المساعدات وضمان الإجابات الصحيحة والنقاط',
+    name: 'حاصدو النقاط والمعرفة',
+    desc: 'التركيز على المساعدات الذكية وضمان الإجابات الصحيحة والنقاط العالية',
     team1: ['double', 'fifty'],
     team2: ['double', 'time_boost'],
   }
 ];
 
 
+
 // 3 Dynamic Wheel of Fortune Options as specified
 export const FORTUNE_WHEEL_OPTIONS = [
-{
-id: 'double',
-label: 'تدبيل النقاط',
-multiplier: 2,
-sublabel: 'ضعف النقاط (x2)',
-icon: 'Zap',
-emoji: '',
-color: '#8B5CF6',
-gradient: 'from-purple-600 to-indigo-600',
-desc: 'مضاعفة نقاط السؤال الحالي مرتين (x2) إذا كانت إجابتك صحيحة!'
-},
-{
-id: 'freeze',
-label: 'حظر أسلحة الخصم',
-multiplier: 1,
-sublabel: 'حرمان للدور القادم',
-icon: 'Snowflake',
-emoji: '',
-color: '#06B6D4',
-gradient: 'from-cyan-500 to-blue-600',
-desc: 'الفريق الخصم مجمّد ومحروم من استخدام أي أسلحة في دوره القادم!'
-},
-{
-id: 'steal_random',
-label: 'سرقة سؤال عشوائي',
-multiplier: 1,
-sublabel: 'سحب سؤال من الخصم',
-icon: 'Swords',
-emoji: '',
-color: '#EC4899',
-gradient: 'from-rose-500 to-pink-600',
-desc: 'سرقة سؤال عشوائي من فئات الفريق الخصم لصالحك وحرمانه منه عند الإجابة!'
-}
+  {
+    id: 'double',
+    label: 'تدبيل النقاط',
+    multiplier: 2,
+    sublabel: 'ضعف النقاط (x2)',
+    icon: 'Zap',
+    color: '#8B5CF6',
+    gradient: 'from-purple-600 to-indigo-600',
+    desc: 'مضاعفة نقاط هذا التحدي مرتين (+400 نقطة) تضاف فوراً لرصيدك!'
+  },
+  {
+    id: 'freeze',
+    label: 'حظر أسلحة الخصم',
+    multiplier: 1,
+    sublabel: 'تجميد للدور القادم',
+    icon: 'Snowflake',
+    color: '#06B6D4',
+    gradient: 'from-cyan-500 to-blue-600',
+    desc: 'الفريق الخصم مجمّد ومحروم تماماً من استخدام أي أسلحة في دوره القادم!'
+  },
+  {
+    id: 'bomb_rival',
+    label: 'قنبلة وقت للخصم',
+    multiplier: 1,
+    sublabel: 'تقليص وقت إجابته (15ث)',
+    icon: 'Bomb',
+    color: '#F43F5E',
+    gradient: 'from-rose-500 to-pink-600',
+    desc: 'زرع قنبلة وقت فورية تقلص وقت إجابة الفريق الخصم إلى 15 ثانية فقط في دوره القادم!'
+  }
 ];
+
 
 

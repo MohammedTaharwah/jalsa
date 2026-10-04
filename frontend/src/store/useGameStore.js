@@ -1415,43 +1415,17 @@ title: 'تجميد أسلحة الفريق!',
 message: `عجلة الحظ جمدت فريق [${penalizedTeam.name}] وحرمته من استخدام أسلحته لدوره القادم!`
 }
 }));
-} else if (optId === 'steal_random') {
-const rivalCols = board.filter(c => c.chosenByTeam && c.chosenByTeam.id === penalizedTeam.id);
-let stolen = null;
-for (const col of rivalCols) {
-const available = [...col.tiles]
-.filter(t => !t.isUsed && t.is_available !== false)
-.sort((a, b) => b.points - a.points);
-if (available.length > 0) {
-stolen = { tile: available[0], col };
-break;
+} else if (optId === 'bomb_rival') {
+  set(state => ({
+    teams: state.teams.map(t => t.id === penalizedTeam.id ? { ...t, isBombed: true } : t),
+    gameBanner: {
+      type: 'warning',
+      title: 'قنبلة وقت على الخصم!',
+      message: `عجلة الحظ زرعت قنبلة وقت لفريق [${penalizedTeam.name}]، سيتقلص وقت إجابته إلى (15 ثانية فقط) لدوره القادم!`
+    }
+  }));
 }
-}
-if (stolen) {
-set(state => ({
-board: state.board.map(c => c.categoryId === stolen.col.categoryId ? {
-...c,
-tiles: c.tiles.map(t => t.id === stolen.tile.id ? { ...t, isUsed: true, status: 'answered', winnerTeamId: targetTeam.id } : t)
-} : c),
-teams: state.teams.map(t => t.id === targetTeam.id ? { ...t, score: t.score + stolen.tile.points } : t),
-gameBanner: {
-type: 'steal',
-title: 'سرقة سؤال من الخصم! ⚔️',
-message: `عجلة الحظ سرقت سؤالاً بقيمة ${stolen.tile.points} نقطة من فئة [${stolen.col.categoryName || stolen.col.name}] لصالح [${targetTeam.name}]!`
-}
-}));
-} else {
-// مكافأة بديلة في حال كانت كل أسئلة الخصم مجابة
-set(state => ({
-teams: state.teams.map(t => t.id === targetTeam.id ? { ...t, score: t.score + 400 } : t),
-gameBanner: {
-type: 'double',
-title: 'مكافأة بديلة (+400 نقطة)!',
-message: `نظراً لعدم توفر أسئلة لسرقتها، منحت العجلة 400 نقطة إضافية لصالح [${targetTeam.name}]!`
-}
-}));
-}
-}
+
 
 set({
 wheelModalOpen: false,
@@ -1849,22 +1823,33 @@ nextTurn: () => {
 
   let nextTeam = teams[nextIndex];
   let banner = skipBanner;
+  let shouldResetBombed = false;
+  let shouldResetFrozen = false;
+
   if (nextTeam.isBombed) {
     banner = {
       type: 'warning',
-      title: '💣 تنبيه قنبلة الوقت!',
-      message: `دور [${nextTeam.name}] الآن تحت تأثير قنبلة الوقت! تم تقليص وقت الإجابة إلى 15 ثانية فقط!`
+      title: 'تنبيه قنبلة الوقت!',
+      message: `دور [${nextTeam.name}] الآن تحت تأثير قنبلة الوقت! تم تقليص وقت الإجابة إلى 15 ثانية فقط ومُنع من طلب وقت إضافي!`
     };
   } else if (nextTeam.isFrozen) {
     banner = {
       type: 'frozen_turn',
       title: 'تنبيه التجميد!',
-      message: `دور [${nextTeam.name}] الآن، ولكنه مجمّد ومحروم من استخدام الأسلحة المساعدة في هذا الدور!`
+      message: `دور [${nextTeam.name}] الآن، ولكنه مجمّد ومحروم من استخدام الأسلحة والمساعدات في هذا الدور!`
     };
-    set(state => ({
-      teams: state.teams.map((t, idx) => idx === nextIndex ? { ...t, isFrozen: false } : t)
-    }));
+    shouldResetFrozen = true;
   }
+
+  set(state => ({
+    teams: state.teams.map((t, idx) => {
+      if (idx === nextIndex && shouldResetFrozen) {
+        return { ...t, isFrozen: false };
+      }
+      return t;
+    })
+  }));
+
 
   set({
     currentTurn: nextIndex,
@@ -1905,10 +1890,12 @@ isWheelSpinning: false,
 wheelRotation: 0
 });
 } else {
-set({
-isWheelChallengeActive: false
-});
-get().nextTurn();
+  // Reset isBombed for current team now that their question has concluded
+  set(state => ({
+    isWheelChallengeActive: false,
+    teams: state.teams.map((t, idx) => idx === get().currentTurn ? { ...t, isBombed: false } : t)
+  }));
+  get().nextTurn();
 }
 },
 
