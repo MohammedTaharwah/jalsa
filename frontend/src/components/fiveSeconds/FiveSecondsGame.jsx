@@ -33,6 +33,9 @@ export const FiveSecondsGame = ({ onExit }) => {
   const [questionPool, setQuestionPool] = useState([]);
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [roundNumber, setRoundNumber] = useState(1);
+  const [timeLeft, setTimeLeft] = useState(5);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const timerRef = useRef(null);
 
   // Fetch updated questions from backend (including questions uploaded by admin)
   useEffect(() => {

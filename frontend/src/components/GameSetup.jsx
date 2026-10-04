@@ -39,7 +39,8 @@ import {
   Info,
   Lightbulb,
   Bomb,
-  Target
+  Target,
+  BookOpen
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useGame } from '../context/GameContext';
@@ -47,6 +48,7 @@ import { CategoryCard } from './CategoryCard';
 import { CATEGORIES_DATA, POWERUPS_CATALOG, TACTICAL_PRESETS } from '../data/categoriesData';
 import { AdminPromoManager } from './AdminPromoManager';
 import { OTPScreen } from './OTPScreen';
+import { GameGuideModal } from './GameGuideModal';
 
 import { API_BASE } from '../utils/api';
 import { CheckoutModal } from './CheckoutModal';
@@ -165,6 +167,7 @@ const [isOTPOpen, setIsOTPOpen] = useState(false);
 const [isAdminPromoOpen, setIsAdminPromoOpen] = useState(false);
 const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 const [isAuthOpen, setIsAuthOpen] = useState(false);
+const [isGuideOpen, setIsGuideOpen] = useState(false);
 const [availableCategories, setAvailableCategories] = useState([]);
 const [isCategoriesLoading, setIsCategoriesLoading] = useState(true);
 const [categoriesError, setCategoriesError] = useState('');
@@ -619,6 +622,16 @@ className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-amber-50 
 </div>
 
 <div className="flex items-center gap-2">
+{/* Game Guide Button */}
+<button
+onClick={() => setIsGuideOpen(true)}
+className="px-3 py-1.5 rounded-2xl bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-black transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+title="دليل ألعاب منصة جلسة والأسلحة التكتيكية"
+>
+<BookOpen className="w-3.5 h-3.5 text-purple-600" />
+<span>دليل اللعبة 📖</span>
+</button>
+
 {/* Admin Promo Codes Button */}
 {isAdmin && (
 <button
@@ -703,6 +716,16 @@ className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight mb-1"
       <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-[10px] text-white font-extrabold shadow-sm">
         جديد
       </span>
+    </button>
+
+    <button
+      type="button"
+      onClick={() => setIsGuideOpen(true)}
+      className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 transition group cursor-pointer"
+      title="دليل اللعبة وقوانين الأطوار والأسلحة"
+    >
+      <BookOpen className="w-4 h-4 text-purple-600 group-hover:scale-110 transition-transform" />
+      <span>دليل الألعاب 📖</span>
     </button>
   </div>
 </div>
@@ -1603,6 +1626,13 @@ onClose={() => setIsCheckoutOpen(false)}
 onPaymentSuccess={(newBal) => {
 setAvailableGames(newBal);
 }}
+/>
+
+{/* ================= MODAL: COMPREHENSIVE GAME GUIDE ================= */}
+<GameGuideModal
+isOpen={isGuideOpen}
+onClose={() => setIsGuideOpen(false)}
+initialTab="jeopardy"
 />
 
 {/* ================= SOCIAL MEDIA FOOTER ================= */}

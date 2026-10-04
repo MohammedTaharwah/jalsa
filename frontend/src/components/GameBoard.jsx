@@ -26,10 +26,12 @@ Volume2,
 Image as ImageIcon,
 Lightbulb,
 Info,
-Bomb
+Bomb,
+BookOpen
 } from 'lucide-react';
 import { useGameStore } from '../store/useGameStore';
 import { FortuneWheelModal } from './FortuneWheelModal';
+import { GameGuideModal } from './GameGuideModal';
 import { SocialFooter } from './SocialFooter';
 import { CATEGORIES_DATA, POWERUPS_CATALOG } from '../data/categoriesData';
 import { API_BASE } from '../utils/api';
@@ -402,15 +404,15 @@ isDisabled
 );
 })}
 
-{/* Tactical Weapons Guide Button */}
+{/* Game & Tactical Guide Button */}
 <button
   type="button"
   onClick={() => setTacticalGuideOpen(true)}
-  className="px-2 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[11px] font-black flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
-  title="دليل قوة وتكتيكات الأسلحة"
+  className="px-2.5 py-1 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 text-[11px] font-black flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+  title="دليل اللعبة والقوانين والأسلحة"
 >
-  <Lightbulb className="w-3.5 h-3.5 text-amber-600" />
-  <span className="hidden sm:inline">دليل الأسلحة 💡</span>
+  <BookOpen className="w-3.5 h-3.5 text-purple-600" />
+  <span className="hidden sm:inline">دليل اللعبة 📖</span>
 </button>
 
 
@@ -1422,106 +1424,12 @@ className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 h
   )}
 </AnimatePresence>
 
-{/* ================= TACTICAL WEAPONS & POWERS GUIDE MODAL ================= */}
-<AnimatePresence>
-  {tacticalGuideOpen && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md" dir="rtl">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 15 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 15 }}
-        className="w-full max-w-3xl bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200 relative max-h-[90vh] flex flex-col"
-      >
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-md shadow-amber-500/20 text-lg">
-              ⚔️
-            </div>
-            <div>
-              <h3 className="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2">
-                دليل الأسلحة وقوتها التكتيكية
-              </h3>
-              <p className="text-xs text-slate-500 font-medium">
-                افهم سر كل سلاح، قوته، وكيف تقلب به موازين اللعبة لصالح فريقك
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setTacticalGuideOpen(false)}
-            className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="overflow-y-auto py-4 space-y-3.5 pr-1 flex-1">
-          {POWERUPS_CATALOG.map((weapon) => (
-            <div
-              key={weapon.id}
-              className="p-4 rounded-2xl border border-slate-200/90 bg-gradient-to-r from-slate-50 to-white hover:border-purple-300 transition-all shadow-xs"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{weapon.emoji}</span>
-                  <div>
-                    <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                      {weapon.name}
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-700">
-                        {weapon.type}
-                      </span>
-                    </h4>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-500">
-                    مستوى القوة:
-                  </span>
-                  <span className="text-amber-500 font-black text-xs">
-                    {'⭐'.repeat(weapon.powerLevel || 4)}
-                  </span>
-                  <span className="px-2.5 py-1 rounded-xl bg-slate-100 font-black text-xs text-slate-700 border border-slate-200">
-                    {weapon.cost} نقطة
-                  </span>
-                </div>
-              </div>
-
-              <p className="text-xs text-slate-600 mb-2 font-medium leading-relaxed">
-                {weapon.desc}
-              </p>
-
-              <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-950 text-xs font-bold flex items-start gap-2">
-                <Lightbulb className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                <div>
-                  <span className="text-amber-800 font-black">أفضل تكتيك للاستخدام: </span>
-                  {weapon.tacticHint}
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {/* Quick info note */}
-          <div className="p-3.5 rounded-2xl bg-purple-50 border border-purple-200 text-purple-900 text-xs font-bold flex items-center gap-2.5">
-            <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
-            <span>
-              <strong>تذكر:</strong> ميزة <strong>تغيير السؤال 🔄</strong> مجانية تماماً ومتاحة لمرة واحدة فقط لكل فريق طوال مسار الجلسة!
-            </span>
-          </div>
-        </div>
-
-        <div className="pt-3 border-t border-slate-100 flex justify-end shrink-0">
-          <button
-            type="button"
-            onClick={() => setTacticalGuideOpen(false)}
-            className="px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs transition cursor-pointer shadow-md shadow-purple-500/20"
-          >
-            فهمت، العودة للوحة اللعب
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  )}
-</AnimatePresence>
+{/* ================= COMPREHENSIVE GAME GUIDE MODAL ================= */}
+<GameGuideModal
+  isOpen={tacticalGuideOpen}
+  onClose={() => setTacticalGuideOpen(false)}
+  initialTab="jeopardy"
+/>
 
 
 {/* ================= FORTUNE WHEEL MODAL (4 OUTCOMES) ================= */}
