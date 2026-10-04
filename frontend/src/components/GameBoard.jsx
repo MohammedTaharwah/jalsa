@@ -208,8 +208,13 @@ const getDisplayPoints = () => {
   if (!activeTile) return 200;
   if (reboundState.isActive && reboundState.basePoints) return reboundState.basePoints;
   
+  const isImageQ = Boolean(activeQuestion?.media_url && !activeQuestion.media_url.match(/\.(mp3|wav|ogg)$/i) && activeQuestion.media_type !== 'audio');
+
   // If player manually reduced blur on an image question, adjust points accordingly
-  let pts = customBlurLevel !== null ? customBlurLevel : activeTile.points;
+  // All image questions give 600 points by default, unless player used the blur reduction buttons (to 400 or 200)
+  let pts = isImageQ 
+    ? (customBlurLevel !== null ? customBlurLevel : 600)
+    : activeTile.points;
   
   if (activeModifier === 'double') return pts * 2;
   if (activeModifier === 'exposed') return pts * 3;
@@ -1199,7 +1204,7 @@ key={idx}
 whileHover={!isButtonDisabled ? { scale: 1.01 } : {}}
 whileTap={!isButtonDisabled ? { scale: 0.98 } : {}}
 disabled={isButtonDisabled}
-onClick={() => selectOption(option, customBlurLevel !== null ? getDisplayPoints() : undefined)}
+onClick={() => selectOption(option, getDisplayPoints())}
 className={`p-4 sm:p-5 rounded-2xl font-bold text-base sm:text-lg text-right transition-all flex items-center justify-between gap-3 shadow-sm ${style}`}
 >
 <div className="flex items-center gap-3">
