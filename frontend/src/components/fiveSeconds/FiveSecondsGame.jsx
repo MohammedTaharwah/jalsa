@@ -198,6 +198,12 @@ export const FiveSecondsGame = ({ onExit }) => {
             <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-500 to-orange-600 mx-auto flex items-center justify-center text-3xl shadow-lg shadow-orange-500/30 animate-pulse">
               ⏱️
             </div>
+            {/* Free Mode Badge & Rules */}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-black mx-auto">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              <span>لعب مجاني غير محدود 100% وبدون نقاط</span>
+            </div>
+
             <div>
               <h1 className="text-2xl sm:text-3xl font-black text-white">قوانين تحدي الـ 5 ثواني</h1>
               <p className="text-xs sm:text-sm text-slate-400 max-w-md mx-auto mt-2 leading-relaxed font-medium">
@@ -205,47 +211,35 @@ export const FiveSecondsGame = ({ onExit }) => {
               </p>
             </div>
 
-            {/* Team Names Inputs */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-right">
-              <div className="p-4 rounded-2xl bg-purple-950/40 border border-purple-500/40 space-y-2">
-                <label className="text-xs font-black text-purple-300 block">اسم الفريق الأول:</label>
-                <input
-                  type="text"
-                  value={teams[0].name}
-                  onChange={(e) => setTeams(prev => [ { ...prev[0], name: e.target.value }, prev[1] ])}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-purple-500/50 text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-
-              <div className="p-4 rounded-2xl bg-orange-950/40 border border-orange-500/40 space-y-2">
-                <label className="text-xs font-black text-orange-300 block">اسم الفريق الثاني:</label>
-                <input
-                  type="text"
-                  value={teams[1].name}
-                  onChange={(e) => setTeams(prev => [ prev[0], { ...prev[1], name: e.target.value } ])}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-orange-500/50 text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
+            {/* Quick Presets Bar */}
+            <div className="space-y-1.5 p-3 rounded-2xl bg-slate-900/90 border border-slate-700/80 text-right">
+              <label className="text-xs font-black text-amber-400 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>طول المباراة (نقاط الفوز):</span>
+              </label>
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                {[
+                  { pts: 5, label: 'سريعة (5 جولات)' },
+                  { pts: 7, label: 'متوسطة (7 جولات)' },
+                  { pts: 10, label: 'حماسية (10 جولات)' }
+                ].map(({ pts, label }) => (
+                  <button
+                    key={pts}
+                    type="button"
+                    onClick={() => setTargetScore(pts)}
+                    className={`py-2 px-2 rounded-xl text-xs font-black transition cursor-pointer border flex flex-col items-center justify-center ${
+                      targetScore === pts
+                        ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                    }`}
+                  >
+                    <span className="text-sm font-black">{pts} نقاط</span>
+                    <span className="text-[9px] opacity-80">{label}</span>
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Target Score Selector */}
-            <div className="flex items-center justify-center gap-3 pt-2">
-              <span className="text-xs text-slate-400 font-bold">نقاط الفوز بالجولة:</span>
-              {[5, 7, 10].map((pts) => (
-                <button
-                  key={pts}
-                  type="button"
-                  onClick={() => setTargetScore(pts)}
-                  className={`px-4 py-1.5 rounded-xl text-xs font-black transition cursor-pointer ${
-                    targetScore === pts
-                      ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/25'
-                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                  }`}
-                >
-                  {pts} نقاط
-                </button>
-              ))}
-            </div>
 
             <button
               type="button"

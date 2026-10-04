@@ -543,86 +543,12 @@ export const SpyGame = ({ onExit }) => {
     onExit?.();
   };
 
-  // Start the secret round (deducts 1 game session per 5 rounds)
+  // Start the secret round (100% Free & Unlimited rounds!)
   const startSecretRound = async () => {
-    if (isConsuming) return;
-
-    // Check if we need to consume 1 game credit from balance for a new 5-round pack
-    if (remainingRoundsInPack <= 0) {
-      // 1. Strictly verify games balance
-      if (availableGames <= 0) {
-        setBalanceAlert('نفد رصيدك من الألعاب! كل 1 لعبة في رصيدك تمنحك باقة كاملة من 5 جولات في لعبة مين الدسوس. يرجى شحن رصيدك عبر باقات الألعاب للمتابعة والاستمتاع بالجولات.');
-        return;
-      }
-
-      setIsConsuming(true);
-      setBalanceAlert(null);
-
-      try {
-        // 2. Atomically consume 1 game on backend
-        const token = getAuthToken();
-        const consumeRes = await fetch(`${API_BASE}/promo/consume-game`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({ user_id: currentUser?.id })
-        });
-
-        if (!consumeRes.ok) {
-          const errorData = await consumeRes.json().catch(() => ({}));
-          setBalanceAlert(errorData.detail || 'نفد رصيدك من الألعاب! يرجى شحن رصيدك لتتمكن من خوض جولة جديدة.');
-          setAvailableGames(0);
-          setIsConsuming(false);
-          return;
-        }
-
-        const consumeData = await consumeRes.json();
-        const updatedBalance = typeof consumeData.remaining_games === 'number'
-          ? consumeData.remaining_games
-          : Math.max(0, availableGames - 1);
-        setAvailableGames(updatedBalance);
-
-        // 1 game consumed -> gives 5 rounds. This is round 1, so 4 rounds remain in this pack.
-        const newRemaining = ROUNDS_PER_GAME_CREDIT - 1;
-        setRemainingRoundsInPack(newRemaining);
-        try {
-          localStorage.setItem(SPY_ROUNDS_REMAINING_KEY, String(newRemaining));
-        } catch (e) {}
-        showToast('بدأت باقة جديدة: الجولة 1 من 5 (متبقي 4 جولات مجانية) 🎯');
-      } catch (err) {
-        console.error('Failed to consume game session:', err);
-        // Fallback for offline / network / dev environment so rounds always advance
-        const updatedBalance = Math.max(0, availableGames - 1);
-        setAvailableGames(updatedBalance);
-        const newRemaining = ROUNDS_PER_GAME_CREDIT - 1;
-        setRemainingRoundsInPack(newRemaining);
-        try {
-          localStorage.setItem(SPY_ROUNDS_REMAINING_KEY, String(newRemaining));
-        } catch (e) {}
-        showToast('بدأت باقة جديدة: الجولة 1 من 5 (متبقي 4 جولات مجانية) 🎯');
-      } finally {
-        setIsConsuming(false);
-      }
-    } else {
-      // Consume 1 round from the active 5-round pack (no balance deduction)
-      const currentRoundInPack = ROUNDS_PER_GAME_CREDIT - remainingRoundsInPack + 1;
-      const newRemaining = remainingRoundsInPack - 1;
-      setRemainingRoundsInPack(newRemaining);
-      try {
-        localStorage.setItem(SPY_ROUNDS_REMAINING_KEY, String(newRemaining));
-      } catch (e) {}
-      if (newRemaining > 0) {
-        showToast(`بدأت الجولة ${currentRoundInPack} من 5 (متبقي ${newRemaining} جولات في باقتك) 🎯`);
-      } else {
-        showToast(`بدأت الجولة ${currentRoundInPack} من 5 (الجولة الأخيرة في هذه الباقة) 🎯`);
-      }
-    }
-
-    // 3. Clean player names
+    // 1. Clean player names
     const cleanNames = getCleanPlayerNames();
     setPlayerNames(cleanNames);
+
 
     // 4. Pick a random category from selected
     const activeCats = allCategories.filter((c) => selectedCategoryIds.includes(c.id));
@@ -805,34 +731,13 @@ export const SpyGame = ({ onExit }) => {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Total Spy Rounds Balance Badge */}
+          {/* 100% Free Mode Badge */}
           <div
-            className="px-3 py-1.5 rounded-xl bg-slate-800/90 border border-slate-700 flex items-center gap-2 text-xs font-bold text-slate-200 shadow-xs"
-            title="إجمالي الجولات المتاحة للعب في مين الدسوس (كل 1 لعبة = 5 جولات)"
+            className="px-3.5 py-1.5 rounded-xl bg-emerald-950/70 border border-emerald-500/50 flex items-center gap-1.5 text-xs font-black text-emerald-300 shadow-xs"
           >
-            <span className="text-amber-400 text-sm">🕵️</span>
-            <div className="flex items-center gap-1.5">
-              <span className="hidden sm:inline">جولات الجاسوس المتاحة:</span>
-              <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-400 font-black text-sm">
-                {totalAvailableSpyRounds}
-              </span>
-            </div>
-            {remainingRoundsInPack > 0 && (
-              <span className="text-[10px] text-purple-300 bg-purple-950/80 px-2 py-0.5 rounded-md border border-purple-800/60 hidden md:inline">
-                ({remainingRoundsInPack} متبقية في الباقة)
-              </span>
-            )}
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+            <span>لعب مجاني غير محدود 100%</span>
           </div>
-
-          <button
-            type="button"
-            onClick={() => setIsCheckoutOpen(true)}
-            className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-slate-950 font-black text-xs transition flex items-center gap-1 shadow-sm active:scale-95 cursor-pointer"
-            title="شراء باقات ألعاب عبر PayPal"
-          >
-            <CreditCard className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">شحن الرصيد</span>
-          </button>
 
           {phase !== 'setup' && (
             <button
@@ -844,6 +749,7 @@ export const SpyGame = ({ onExit }) => {
             </button>
           )}
         </div>
+
       </header>
 
       {/* Floating Toast Notification */}
@@ -909,10 +815,73 @@ export const SpyGame = ({ onExit }) => {
                 </div>
               )}
 
+              {/* Quick Game Presets (كبسات سريعة للعبة: 10 بـ 1، 8 بـ 2، 6 بـ 1) */}
+              <div className="space-y-1.5 p-3 rounded-2xl bg-slate-900/90 border border-slate-700/80">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black text-amber-400 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>تجهيز سريع بلمسة واحدة (Presets):</span>
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-bold">لاعبين ضد دسوس</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handlePlayerCountChange(10);
+                      setSpyCount(1);
+                      showToast('تم ضبط اللعبة: 10 لاعبين ضد دسوس واحد 🕵️');
+                    }}
+                    className={`py-2 px-2 rounded-xl text-xs font-black transition cursor-pointer border flex flex-col items-center justify-center ${
+                      playerCount === 10 && spyCount === 1
+                        ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                    }`}
+                  >
+                    <span className="text-sm">10 بـ 1</span>
+                    <span className="text-[9px] opacity-80">10 لاعبين • 1 دسوس</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handlePlayerCountChange(8);
+                      setSpyCount(2);
+                      showToast('تم ضبط اللعبة: 8 لاعبين ضد 2 جواسيس 🕵️🕵️');
+                    }}
+                    className={`py-2 px-2 rounded-xl text-xs font-black transition cursor-pointer border flex flex-col items-center justify-center ${
+                      playerCount === 8 && spyCount === 2
+                        ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                    }`}
+                  >
+                    <span className="text-sm">8 بـ 2</span>
+                    <span className="text-[9px] opacity-80">8 لاعبين • 2 دسوس</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handlePlayerCountChange(6);
+                      setSpyCount(1);
+                      showToast('تم ضبط اللعبة: 6 لاعبين ضد دسوس واحد 🕵️');
+                    }}
+                    className={`py-2 px-2 rounded-xl text-xs font-black transition cursor-pointer border flex flex-col items-center justify-center ${
+                      playerCount === 6 && spyCount === 1
+                        ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                    }`}
+                  >
+                    <span className="text-sm">6 بـ 1</span>
+                    <span className="text-[9px] opacity-80">6 لاعبين • 1 دسوس</span>
+                  </button>
+                </div>
+              </div>
+
               {/* Player Count Selector */}
               <div className="space-y-2">
                 <label className="block text-xs font-black text-slate-300">
-                  عدد اللاعبين: <span className="text-amber-400 font-black text-sm">{playerCount} لاعبين</span>
+                  عدد اللاعبين يدوياً: <span className="text-amber-400 font-black text-sm">{playerCount} لاعبين</span>
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {[3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
