@@ -10,6 +10,7 @@ from app.routers.game import router as game_router
 from app.routers.payment import router as payment_router
 from app.routers.spy import router as spy_router
 from app.routers.social import router as social_router
+from app.routers.five_seconds import router as five_seconds_router
 
 __all__ = [
     "auth_router",
@@ -23,5 +24,7 @@ __all__ = [
     "game_router",
     "payment_router",
     "spy_router",
-    "social_router"
+    "social_router",
+    "five_seconds_router"
 ]
+

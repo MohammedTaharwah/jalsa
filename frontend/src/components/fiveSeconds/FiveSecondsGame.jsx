@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { FIVE_SECONDS_QUESTIONS } from '../../data/fiveSecondsQuestions';
+import { API_BASE } from '../../utils/api';
 
 export const FiveSecondsGame = ({ onExit }) => {
   // Game setup states
@@ -28,14 +29,28 @@ export const FiveSecondsGame = ({ onExit }) => {
   ]);
   const [targetScore, setTargetScore] = useState(7); // first to 7 points
   const [currentTurn, setCurrentTurn] = useState(0); // 0 or 1
+  const [availableQuestions, setAvailableQuestions] = useState(FIVE_SECONDS_QUESTIONS);
   const [questionPool, setQuestionPool] = useState([]);
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [roundNumber, setRoundNumber] = useState(1);
 
-  // 5-second countdown timer state
-  const [timeLeft, setTimeLeft] = useState(5);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const timerRef = useRef(null);
+  // Fetch updated questions from backend (including questions uploaded by admin)
+  useEffect(() => {
+    const loadQuestions = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/five-seconds/questions`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.length > 0) {
+            setAvailableQuestions(data);
+          }
+        }
+      } catch (e) {
+        // Fallback to static questions
+      }
+    };
+    loadQuestions();
+  }, []);
 
   // Sound synthesis / beep effect
   const playBeep = (freq = 440, duration = 0.1) => {
@@ -56,7 +71,8 @@ export const FiveSecondsGame = ({ onExit }) => {
 
   // Start new game session
   const startGame = () => {
-    const shuffled = [...FIVE_SECONDS_QUESTIONS].sort(() => Math.random() - 0.5);
+    const pool = availableQuestions.length > 0 ? availableQuestions : FIVE_SECONDS_QUESTIONS;
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
     setQuestionPool(shuffled);
     setCurrentQuestion(shuffled[0]);
     setRoundNumber(1);
@@ -68,7 +84,8 @@ export const FiveSecondsGame = ({ onExit }) => {
   // Prepare next question
   const prepareNextQuestion = (nextTurnIndex, currentPool) => {
     const nextPool = currentPool.slice(1);
-    const nextQ = nextPool.length > 0 ? nextPool[0] : FIVE_SECONDS_QUESTIONS[Math.floor(Math.random() * FIVE_SECONDS_QUESTIONS.length)];
+    const poolFallback = availableQuestions.length > 0 ? availableQuestions : FIVE_SECONDS_QUESTIONS;
+    const nextQ = nextPool.length > 0 ? nextPool[0] : poolFallback[Math.floor(Math.random() * poolFallback.length)];
     setQuestionPool(nextPool);
     setCurrentQuestion(nextQ);
     setCurrentTurn(nextTurnIndex);
@@ -76,6 +93,7 @@ export const FiveSecondsGame = ({ onExit }) => {
     setIsTimerRunning(false);
     setGameState('round_ready');
   };
+
 
   // Start the 5-second countdown for current question
   const startFiveSeconds = () => {

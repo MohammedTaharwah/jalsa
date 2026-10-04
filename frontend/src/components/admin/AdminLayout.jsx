@@ -12,7 +12,8 @@ import {
   Menu,
   X,
   Sparkles,
-  Share2
+  Share2,
+  Timer
 } from 'lucide-react';
 import logo from '../../assets/logo.png';
 import { AdminOverview } from './AdminOverview';
@@ -23,6 +24,8 @@ import { AdminPackagesPromos } from './AdminPackagesPromos';
 import { AdminGameEconomy } from './AdminGameEconomy';
 import { AdminSpyManager } from './AdminSpyManager';
 import { AdminSocialLinks } from './AdminSocialLinks';
+import { AdminFiveSecondsManager } from './AdminFiveSecondsManager';
+
 
 export const AdminLayout = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -74,6 +77,13 @@ export const AdminLayout = ({ onLogout }) => {
       desc: 'تكلفة الأسلحة التكتيكية'
     },
     {
+      id: 'five-seconds',
+      label: 'تحدي الـ 5 ثواني',
+      icon: Timer,
+      desc: 'إدارة ورفع أسئلة الـ 5 ثواني',
+      badge: 'جديد'
+    },
+    {
       id: 'social-links',
       label: 'صفحات التواصل',
       icon: Share2,
@@ -92,6 +102,8 @@ export const AdminLayout = ({ onLogout }) => {
         return <AdminCategoriesQuestions />;
       case 'spy-game':
         return <AdminSpyManager />;
+      case 'five-seconds':
+        return <AdminFiveSecondsManager />;
       case 'social-links':
         return <AdminSocialLinks />;
       case 'ai-control':

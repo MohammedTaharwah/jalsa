@@ -22,6 +22,7 @@ from app.routers import (
     payment_router,
     spy_router,
     social_router,
+    five_seconds_router,
 )
 
 # Configure logging
@@ -100,6 +101,8 @@ app.include_router(game_router)
 app.include_router(payment_router)
 app.include_router(spy_router)
 app.include_router(social_router)
+app.include_router(five_seconds_router)
+
 
 # Mount static uploads directory for images and audio files
 import os
