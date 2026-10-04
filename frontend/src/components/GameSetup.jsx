@@ -622,16 +622,6 @@ className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-amber-50 
 </div>
 
 <div className="flex items-center gap-2">
-{/* Game Guide Button */}
-<button
-onClick={() => setIsGuideOpen(true)}
-className="px-3 py-1.5 rounded-2xl bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-black transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
-title="دليل ألعاب منصة جلسة والأسلحة التكتيكية"
->
-<BookOpen className="w-3.5 h-3.5 text-purple-600" />
-<span>دليل اللعبة 📖</span>
-</button>
-
 {/* Admin Promo Codes Button */}
 {isAdmin && (
 <button
@@ -687,7 +677,7 @@ className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight mb-1"
 </div>
 
 {/* ================= GAME MODE SELECTOR ================= */}
-<div className="w-full max-w-3xl mb-6 flex items-center justify-center">
+<div className="w-full max-w-3xl mb-6 flex flex-col items-center justify-center">
   <div className="bg-white p-1.5 rounded-2xl border border-slate-200/90 shadow-sm flex flex-wrap items-center justify-center gap-2 w-full sm:w-auto">
     <button
       type="button"
@@ -717,17 +707,17 @@ className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight mb-1"
         جديد
       </span>
     </button>
-
-    <button
-      type="button"
-      onClick={() => setIsGuideOpen(true)}
-      className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 transition group cursor-pointer"
-      title="دليل اللعبة وقوانين الأطوار والأسلحة"
-    >
-      <BookOpen className="w-4 h-4 text-purple-600 group-hover:scale-110 transition-transform" />
-      <span>دليل الألعاب 📖</span>
-    </button>
   </div>
+
+  {/* Distinct Sub-banner for Game Guide */}
+  <button
+    type="button"
+    onClick={() => setIsGuideOpen(true)}
+    className="mt-2.5 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-100 hover:bg-purple-50 text-slate-600 hover:text-purple-700 border border-slate-200 hover:border-purple-200 text-xs font-bold transition-all cursor-pointer shadow-2xs group"
+  >
+    <BookOpen className="w-3.5 h-3.5 text-purple-600 group-hover:scale-110 transition-transform" />
+    <span>طريقة اللعب والقوانين؟ تصفح دليل الألعاب والأسلحة 📖</span>
+  </button>
 </div>
 
 
@@ -1634,6 +1624,19 @@ isOpen={isGuideOpen}
 onClose={() => setIsGuideOpen(false)}
 initialTab="jeopardy"
 />
+
+{/* Floating Game Guide Action Button */}
+<button
+  type="button"
+  onClick={() => setIsGuideOpen(true)}
+  className="fixed bottom-6 left-6 z-40 bg-white/95 hover:bg-purple-50 text-purple-900 border border-purple-200/90 shadow-xl hover:shadow-2xl px-3.5 py-2.5 rounded-2xl font-black text-xs flex items-center gap-2 transition-all cursor-pointer backdrop-blur-md hover:scale-105 active:scale-95 group"
+  title="دليل اللعبة والقوانين والأسلحة"
+>
+  <div className="w-6 h-6 rounded-lg bg-purple-600 text-white flex items-center justify-center text-xs shadow-sm">
+    📖
+  </div>
+  <span className="hidden sm:inline">دليل اللعبة</span>
+</button>
 
 {/* ================= SOCIAL MEDIA FOOTER ================= */}
 <div className="w-full mt-10">
