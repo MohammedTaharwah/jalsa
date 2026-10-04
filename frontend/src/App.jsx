@@ -5,6 +5,7 @@ import { GameBoard } from './components/GameBoard';
 import { GameOverScreen } from './components/GameOverScreen';
 import { AdminLayout } from './components/admin/AdminLayout';
 import { SpyGame } from './components/spy/SpyGame';
+import { FiveSecondsGame } from './components/fiveSeconds/FiveSecondsGame';
 import { AuthModal } from './components/AuthModal';
 import { ShieldAlert, ArrowLeft } from 'lucide-react';
 
@@ -117,6 +118,12 @@ const GameContainer = () => {
   if (gameMode === 'spy') {
     return <SpyGame onExit={() => setGameMode('trivia')} />;
   }
+
+  // Standalone "تحدي الـ 5 ثواني" Mini-Game Mode
+  if (gameMode === 'five_seconds') {
+    return <FiveSecondsGame onExit={() => setGameMode('trivia')} />;
+  }
+
 
   // 1. Setup Wizard Screen (Light vibrant theme)
   if (gameStage === 'setup' && currentRoute !== 'board') {
