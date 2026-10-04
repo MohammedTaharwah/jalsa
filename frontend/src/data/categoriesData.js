@@ -85,62 +85,108 @@ count: 18
 
 // Tactical Power-ups Catalog for Loadout selection (2 weapons per team)
 export const POWERUPS_CATALOG = [
-{
-id: 'double',
-name: 'دبل النقاط',
-shortName: 'دبل (x2)',
-desc: 'مضاعفة نقاط السؤال القادم مرتين عند الإجابة الصحيحة',
-iconName: 'Zap',
-cost: 150,
-color: 'purple',
-badge: 'x2',
-emoji: ''
-},
-{
-id: 'freeze',
-name: 'حظر / تجميد الخصم',
-shortName: 'تجميد الخصم',
-desc: 'حرمان الفريق الخصم من استخدام أي سلاح تكتيكي في دوره القادم',
-iconName: 'Snowflake',
-cost: 100,
-color: 'cyan',
-badge: 'حظر',
-emoji: ''
-},
-{
-id: 'bomb',
-name: 'قنبلة الوقت 💣',
-shortName: 'قنبلة الوقت',
-desc: 'زرع قنبلة تقلص وقت إجابة الفريق الخصم إلى النصف (15ث فقط) في دوره القادم!',
-iconName: 'Bomb',
-cost: 150,
-color: 'rose',
-badge: '💣 قنبلة',
-emoji: '💣'
-},
-{
-id: 'fifty',
-name: 'حذف إجابتين (50:50)',
-shortName: 'حذف 50:50',
-desc: 'إلغاء خيارين خاطئين لرفع احتمالية الإجابة الصحيحة',
-iconName: 'HelpCircle',
-cost: 200,
-color: 'amber',
-badge: '50:50',
-emoji: '🎯'
-},
-{
-id: 'time_boost',
-name: 'طلب وقت إضافي (+15ث)',
-shortName: 'وقت إضافي',
-desc: 'إضافة 15 ثانية لمؤقت السؤال للتفكير والنقاش',
-iconName: 'Hourglass',
-cost: 50,
-color: 'blue',
-badge: '+15ث',
-emoji: '⏳'
-}
+  {
+    id: 'double',
+    name: 'دبل النقاط ⚡',
+    shortName: 'دبل (x2)',
+    desc: 'مضاعفة نقاط السؤال القادم مرتين عند الإجابة الصحيحة',
+    iconName: 'Zap',
+    cost: 150,
+    color: 'purple',
+    badge: 'x2',
+    emoji: '⚡',
+    type: 'هجومي / مضاعفة',
+    powerLevel: 5,
+    tacticHint: 'استخدمه مع أسئلة الـ 600 أو 500 نقطة التي تضمن معرفتها لتكسب حتى 1200 نقطة بضربة واحدة!',
+    bestFor: 'صيد النقاط العالية'
+  },
+  {
+    id: 'bomb',
+    name: 'قنبلة الوقت 💣',
+    shortName: 'قنبلة الوقت',
+    desc: 'زرع قنبلة تقلص وقت إجابة الفريق الخصم إلى 15 ثانية فقط في دوره القادم!',
+    iconName: 'Bomb',
+    cost: 150,
+    color: 'rose',
+    badge: '💣 15ث',
+    emoji: '💣',
+    type: 'تخريب / هجومي',
+    powerLevel: 5,
+    tacticHint: 'فجّرها قبل أن يختار الخصم سؤاله، لتربكه بالوقت القصير وتجبره على الخطأ في الأسئلة الصعبة!',
+    bestFor: 'تشتيت الخصم والضغط النفسي'
+  },
+  {
+    id: 'freeze',
+    name: 'تجميد الخصم ❄️',
+    shortName: 'تجميد الخصم',
+    desc: 'حرمان الفريق الخصم من استخدام أي سلاح تكتيكي أو مساعدة في دوره القادم',
+    iconName: 'Snowflake',
+    cost: 100,
+    color: 'cyan',
+    badge: 'حظر',
+    emoji: '❄️',
+    type: 'تعطيل / دفاعي',
+    powerLevel: 4,
+    tacticHint: 'جمّد الخصم إذا كان متقدماً ويريد تدبيل النقاط أو إذا كان يستعد لاستخدام أسلحة قوية ضدك!',
+    bestFor: 'شل حركة أسلحة المنافس'
+  },
+  {
+    id: 'fifty',
+    name: 'حذف إجابتين (50:50) 🎯',
+    shortName: 'حذف 50:50',
+    desc: 'إلغاء خيارين خاطئين لرفع احتمالية الإجابة الصحيحة إلى 50%',
+    iconName: 'HelpCircle',
+    cost: 200,
+    color: 'amber',
+    badge: '50:50',
+    emoji: '🎯',
+    type: 'مساعد / ذكاء',
+    powerLevel: 4,
+    tacticHint: 'أنقذ به فريقك في أسئلة الـ 600 أو الـ 500 عندما تحتار بين الخيارات وتبحث عن الأمان!',
+    bestFor: 'ضمان الإجابة في الأسئلة الحاسمة'
+  },
+  {
+    id: 'time_boost',
+    name: 'طلب وقت إضافي (+15ث) ⏳',
+    shortName: 'وقت إضافي',
+    desc: 'إضافة 15 ثانية لمؤقت السؤال لمزيد من التفكير والنقاش الجماعي',
+    iconName: 'Hourglass',
+    cost: 50,
+    color: 'blue',
+    badge: '+15ث',
+    emoji: '⏳',
+    type: 'مساعد / هادئ',
+    powerLevel: 3,
+    tacticHint: 'أرخص سلاح تكتيكي (50ن فقط) يمنحك وقتاً كافياً لنقاش هادئ ومدروس قبل إعطاء الجواب النهائي!',
+    bestFor: 'التشاور والتفكير الهادئ'
+  }
 ];
+
+// Preset tactical loadouts for quick selection
+export const TACTICAL_PRESETS = [
+  {
+    id: 'balanced',
+    name: 'التشكيلة المتوازنة (موصى بها) ⚖️',
+    desc: 'توازن مثالي بين الهجوم والدفاع لكلا الفريقين',
+    team1: ['double', 'bomb'], // فريق 1: مضاعفة + قنبلة
+    team2: ['freeze', 'fifty'], // فريق 2: تجميد + 50:50
+  },
+  {
+    id: 'chaos',
+    name: 'حرب تكتيكية شرسة 💣🔥',
+    desc: 'ضغط وقت وتجميد متبادل بين الفريقين لأقصى درجات الإثارة',
+    team1: ['bomb', 'freeze'],
+    team2: ['bomb', 'double'],
+  },
+  {
+    id: 'safety',
+    name: 'حاصدو النقاط والمعرفة 🎯💡',
+    desc: 'التركيز على المساعدات وضمان الإجابات الصحيحة والنقاط',
+    team1: ['double', 'fifty'],
+    team2: ['double', 'time_boost'],
+  }
+];
+
 
 // 3 Dynamic Wheel of Fortune Options as specified
 export const FORTUNE_WHEEL_OPTIONS = [

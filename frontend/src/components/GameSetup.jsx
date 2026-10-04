@@ -1,48 +1,53 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-Users,
-Shield,
-Zap,
-Crown,
-Flame,
-Swords,
-Sparkles,
-Trophy,
-Check,
-ChevronRight,
-ChevronLeft,
-Plus,
-Trash2,
-Film,
-Landmark,
-Globe,
-Atom,
-HelpCircle,
-Palette,
-Sliders,
-Rocket,
-Timer,
-CheckCircle2,
-Dumbbell,
-Laptop,
-Tag,
-Mail,
-AlertTriangle,
-RotateCw,
-X,
-Gift,
-CreditCard,
-Snowflake,
-User,
-Search
+  Users,
+  Shield,
+  Zap,
+  Crown,
+  Flame,
+  Swords,
+  Sparkles,
+  Trophy,
+  Check,
+  ChevronRight,
+  ChevronLeft,
+  Plus,
+  Trash2,
+  Film,
+  Landmark,
+  Globe,
+  Atom,
+  HelpCircle,
+  Palette,
+  Sliders,
+  Rocket,
+  Timer,
+  CheckCircle2,
+  Dumbbell,
+  Laptop,
+  Tag,
+  Mail,
+  AlertTriangle,
+  RotateCw,
+  X,
+  Gift,
+  CreditCard,
+  Snowflake,
+  User,
+  Search,
+  Info,
+  Lightbulb,
+  Bomb,
+  Target
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useGame } from '../context/GameContext';
 import { CategoryCard } from './CategoryCard';
-import { CATEGORIES_DATA, POWERUPS_CATALOG } from '../data/categoriesData';
+import { CATEGORIES_DATA, POWERUPS_CATALOG, TACTICAL_PRESETS } from '../data/categoriesData';
 import { AdminPromoManager } from './AdminPromoManager';
 import { OTPScreen } from './OTPScreen';
+
 import { API_BASE } from '../utils/api';
 import { CheckoutModal } from './CheckoutModal';
 import { AuthModal } from './AuthModal';
@@ -347,8 +352,15 @@ loadout: [...currentLoadout, powerupId]
 }));
 };
 
-// Strictly 2 teams enforced
-
+const applyTacticalPreset = (presetId) => {
+  const preset = TACTICAL_PRESETS.find(p => p.id === presetId);
+  if (!preset) return;
+  setTeams(prev => prev.map((t, idx) => ({
+    ...t,
+    loadout: idx === 0 ? [...preset.team1] : [...preset.team2]
+  })));
+  confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } });
+};
 
 // Turn-based Category toggle
 const toggleCategory = (catId) => {
@@ -401,7 +413,7 @@ if (currentStep === 3) {
 // Ensure all teams have selected 2 weapons
 setTeams(prev => prev.map((t, idx) => {
 let l = t.loadout ? [...t.loadout] : [];
-const fallback = idx === 0 ? ['double', 'steal'] : ['freeze', 'fifty'];
+const fallback = idx === 0 ? ['double', 'bomb'] : ['freeze', 'fifty'];
 while (l.length < 2) {
 const nextW = fallback.find(w => !l.includes(w)) || POWERUPS_CATALOG.find(p => !l.includes(p.id))?.id || 'double';
 l.push(nextW);
@@ -1120,20 +1132,45 @@ exit="exit"
 className="space-y-6"
 >
 <div className="border-b border-slate-100 pb-4">
-<div className="flex items-center justify-between">
+<div className="flex flex-wrap items-center justify-between gap-2">
 <div>
 <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
 <Swords className="w-6 h-6 text-purple-600" />
 تجهيز الأسلحة التكتيكية (Loadout)
 </h2>
 <p className="text-xs text-slate-500 mt-0.5">
-اختر <span className="font-bold text-purple-700">سلاحين فقط</span> لكل فريق لاستخدامهما في اللعبة بنظام تكلفة النقاط
+اختر <span className="font-bold text-purple-700">سلاحين لكل فريق</span> أو اختر تشكيلة ذكية جاهزة بنقرة واحدة!
 </p>
 </div>
-<div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-50 text-purple-700 text-xs font-black border border-purple-200">
+<div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-50 text-purple-700 text-xs font-black border border-purple-200">
 <Sparkles className="w-3.5 h-3.5" />
 <span>سلاحين لكل فريق</span>
 </div>
+</div>
+
+{/* Quick Tactical Preset Selection Bar */}
+<div className="mt-4 pt-3 border-t border-slate-100">
+  <div className="flex items-center gap-2 mb-2 text-xs font-bold text-slate-600">
+    <Lightbulb className="w-4 h-4 text-amber-500" />
+    <span>تشكيلات تكتيكية ذكية وجاهزة بنقرة واحدة:</span>
+  </div>
+  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+    {TACTICAL_PRESETS.map((preset) => (
+      <button
+        key={preset.id}
+        type="button"
+        onClick={() => applyTacticalPreset(preset.id)}
+        className="p-2.5 rounded-2xl border border-slate-200 bg-slate-50/70 hover:bg-purple-50/60 hover:border-purple-300 text-right transition-all cursor-pointer group shadow-2xs hover:shadow-xs active:scale-98"
+      >
+        <div className="text-xs font-black text-slate-900 group-hover:text-purple-700 mb-0.5">
+          {preset.name}
+        </div>
+        <p className="text-[10px] text-slate-500 leading-tight">
+          {preset.desc}
+        </p>
+      </button>
+    ))}
+  </div>
 </div>
 </div>
 
@@ -1164,7 +1201,7 @@ teamIndex === 0 ? 'bg-purple-600' : 'bg-orange-500'
 </div>
 <div>
 <h4 className="text-sm font-black text-slate-900">{team.name}</h4>
-<span className="text-[10px] text-slate-500 font-semibold">عتاد الفريق</span>
+<span className="text-[10px] text-slate-500 font-semibold">عتاد الفريق ({isSelectedCount}/2)</span>
 </div>
 </div>
 
@@ -1214,16 +1251,30 @@ isPicked
 </div>
 
 <p
-className={`text-[10px] font-medium leading-tight ${
+className={`text-[10px] font-medium leading-tight mb-2 ${
 isPicked ? 'text-purple-100' : 'text-slate-500'
 }`}
 >
 {powerup.desc}
 </p>
 
+{/* Tactic Hint Box */}
+{powerup.tacticHint && (
+  <div
+    className={`p-2 rounded-xl text-[9px] font-bold leading-normal flex items-start gap-1 mt-auto ${
+      isPicked
+        ? 'bg-black/15 text-white/90 border border-white/20'
+        : 'bg-amber-50/90 text-amber-900 border border-amber-200/80'
+    }`}
+  >
+    <Lightbulb className={`w-3 h-3 shrink-0 mt-0.5 ${isPicked ? 'text-amber-300' : 'text-amber-600'}`} />
+    <span>{powerup.tacticHint}</span>
+  </div>
+)}
+
 {isPicked && (
 <div className="absolute top-2 left-2 w-4 h-4 rounded-full bg-white text-purple-700 flex items-center justify-center text-[10px] font-black shadow-xs">
-
+✓
 </div>
 )}
 </button>
