@@ -95,6 +95,20 @@ def _fetch_board_categories_logic(
             # Filtered randomness: Fetch 2 random questions for this difficulty tier (LIMIT 2)
             selected_questions = q_query.order_by(func.random()).limit(2).all()
 
+            # Smart Fallback: if category has questions of other point levels (e.g. all 600 points for image blur challenges)
+            if len(selected_questions) < 2:
+                already_picked_ids = [t.question.id for t in tiles if t.question is not None] + [q.id for q in selected_questions]
+                fallback_query = db.query(Question).filter(
+                    Question.category_id == actual_cat_id,
+                    Question.id.not_in(already_picked_ids)
+                )
+                if seen_subquery is not None:
+                    fallback_query = fallback_query.filter(Question.id.not_in(seen_subquery))
+                
+                extra_needed = 2 - len(selected_questions)
+                extra_questions = fallback_query.order_by(func.random()).limit(extra_needed).all()
+                selected_questions.extend(extra_questions)
+
             for q in selected_questions:
                 tiles.append(
                     BoardTileOut(
@@ -105,7 +119,7 @@ def _fetch_board_categories_logic(
                     )
                 )
 
-            # Fallback: if fewer than 2 questions are available in this tier
+            # Final Fallback: if total questions in category are exhausted
             for _ in range(2 - len(selected_questions)):
                 tiles.append(
                     BoardTileOut(
