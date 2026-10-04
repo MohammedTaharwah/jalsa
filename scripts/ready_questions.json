@@ -1,0 +1,491 @@
+[
+  {
+    "name": "شعارات الأندية والمنتخبات",
+    "section": "رياضة وتحدي",
+    "description": "خمّن النادي أو المنتخب صاحب الشعار من وراء الغشاوة والتغبيش!",
+    "questions": [
+      {
+        "question_text": "ما هو النادي الإسباني العريق صاحب هذا الشعار الشهير؟",
+        "options_json": [
+          "برشلونة",
+          "ريال مدريد",
+          "أتلتيكو مدريد",
+          "فالنسيا"
+        ],
+        "correct_answer": "برشلونة",
+        "points_level": 200,
+        "media_url": "/game-media/شعارات_الأندية_والمنتخبات/club_barcelona.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هو النادي الملكي صاحب التاج الملكي وهذا الشعار التاريخي؟",
+        "options_json": [
+          "ريال مدريد",
+          "إشبيلية",
+          "ريال سوسيداد",
+          "ريال بيتيس"
+        ],
+        "correct_answer": "ريال مدريد",
+        "points_level": 200,
+        "media_url": "/game-media/شعارات_الأندية_والمنتخبات/club_real_madrid.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هو النادي العربي الملقب بنادي القرن الإفريقي وصاحب النسر الأحمر؟",
+        "options_json": [
+          "الأهلي المصري",
+          "الزمالك",
+          "الترجي التونسي",
+          "الوداد المغربي"
+        ],
+        "correct_answer": "الأهلي المصري",
+        "points_level": 200,
+        "media_url": "/game-media/شعارات_الأندية_والمنتخبات/club_al_ahly.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هو المنتخب صاحب هذا اللون الأصفر السامبا والحائز على 5 كؤوس عالم؟",
+        "options_json": [
+          "البرازيل",
+          "الأرجنتين",
+          "كولومبيا",
+          "الأوروغواي"
+        ],
+        "correct_answer": "البرازيل",
+        "points_level": 200,
+        "media_url": "/game-media/شعارات_الأندية_والمنتخبات/team_brazil.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هو النادي الإنجليزي العريق الملقب بـ 'الشياطين الحمر' صاحب هذا الشعار؟",
+        "options_json": [
+          "مانشستر يونايتد",
+          "ليفربول",
+          "أرسنال",
+          "مانشستر سيتي"
+        ],
+        "correct_answer": "مانشستر يونايتد",
+        "points_level": 400,
+        "media_url": "/game-media/شعارات_الأندية_والمنتخبات/club_man_united.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هو النادي الإنجليزي صاحب طائر الليفر العريق وشعار 'لن تسير وحدك أبداً'؟",
+        "options_json": [
+          "ليفربول",
+          "مانشستر يونايتد",
+          "أستون فيلا",
+          "إيفرتون"
+        ],
+        "correct_answer": "ليفربول",
+        "points_level": 400,
+        "media_url": "/game-media/شعارات_الأندية_والمنتخبات/club_liverpool.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هو النادي اللندني الملقب بـ 'البلوز' صاحب شعار الأسد الأزرق؟",
+        "options_json": [
+          "تشيلسي",
+          "توتنهام",
+          "أرسنال",
+          "وست هام"
+        ],
+        "correct_answer": "تشيلسي",
+        "points_level": 400,
+        "media_url": "/game-media/شعارات_الأندية_والمنتخبات/club_chelsea.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هو النادي البافاري العملاق صاحب هذا الشعار الدائري الأحمر والأزرق؟",
+        "options_json": [
+          "بايرن ميونخ",
+          "بوروسيا دورتموند",
+          "باير ليفركوزن",
+          "شالكه"
+        ],
+        "correct_answer": "بايرن ميونخ",
+        "points_level": 400,
+        "media_url": "/game-media/شعارات_الأندية_والمنتخبات/club_bayern_munich.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هو النادي الإيطالي الشهير الملقب بـ 'السيدة العجوز' صاحب حرف J العصري؟",
+        "options_json": [
+          "يوفنتوس",
+          "ميلان",
+          "إنتر ميلان",
+          "أودينيزي"
+        ],
+        "correct_answer": "يوفنتوس",
+        "points_level": 600,
+        "media_url": "/game-media/شعارات_الأندية_والمنتخبات/club_juventus.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هو النادي الباريسي صاحب الشعار الدائري الذي يتوسطه برج إيفل وزهرة الزنبق؟",
+        "options_json": [
+          "باريس سان جيرمان",
+          "مارسيليا",
+          "موناكو",
+          "ليون"
+        ],
+        "correct_answer": "باريس سان جيرمان",
+        "points_level": 600,
+        "media_url": "/game-media/شعارات_الأندية_والمنتخبات/club_psg.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هو النادي الأرجنتيني العريق صاحب اللونين الأزرق والأصفر والنجوم العديدة؟",
+        "options_json": [
+          "بوكا جونيورز",
+          "ريفر بليت",
+          "سان لورينزو",
+          "راسينغ"
+        ],
+        "correct_answer": "بوكا جونيورز",
+        "points_level": 600,
+        "media_url": "/game-media/شعارات_الأندية_والمنتخبات/club_boca_juniors.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هو النادي البرتغالي الملقب بـ 'التنانين' صاحب هذا الشعار الأزرق والأبيض؟",
+        "options_json": [
+          "بورتو",
+          "بنفيكا",
+          "سبورتينغ لشبونة",
+          "براغا"
+        ],
+        "correct_answer": "بورتو",
+        "points_level": 600,
+        "media_url": "/game-media/شعارات_الأندية_والمنتخبات/club_porto.png",
+        "status": "active"
+      }
+    ]
+  },
+  {
+    "name": "أعلام الدول",
+    "section": "معلومات عامة وثقافة",
+    "description": "خمّن الدولة من علمها ودرجات ألوانها المغبشة!",
+    "questions": [
+      {
+        "question_text": "ما هي الدولة صاحبة هذا العلم العربي ذو النجمة السباعية؟",
+        "options_json": [
+          "الأردن",
+          "فلسطين",
+          "الكويت",
+          "السودان"
+        ],
+        "correct_answer": "الأردن",
+        "points_level": 200,
+        "media_url": "/game-media/أعلام_الدول/flag_jordan.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هي الدولة صاحبة هذا العلم التاريخي والمثلث الأحمر؟",
+        "options_json": [
+          "فلسطين",
+          "الأردن",
+          "العراق",
+          "اليمن"
+        ],
+        "correct_answer": "فلسطين",
+        "points_level": 200,
+        "media_url": "/game-media/أعلام_الدول/flag_palestine.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هي الدولة صاحبة هذا العلم الأخضر المميز؟",
+        "options_json": [
+          "السعودية",
+          "الجزائر",
+          "موريتانيا",
+          "باكستان"
+        ],
+        "correct_answer": "السعودية",
+        "points_level": 200,
+        "media_url": "/game-media/أعلام_الدول/flag_saudi_arabia.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هي الدولة صاحبة علم 'كوكب اليابان' والدائرة الحمراء؟",
+        "options_json": [
+          "اليابان",
+          "كوريا الجنوبية",
+          "الصين",
+          "سنغافورة"
+        ],
+        "correct_answer": "اليابان",
+        "points_level": 200,
+        "media_url": "/game-media/أعلام_الدول/flag_japan.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هي الدولة اللاتينية صاحبة هذا العلم السماوي وفي وسطه شمس مايو؟",
+        "options_json": [
+          "الأرجنتين",
+          "الأوروغواي",
+          "غواتيمالا",
+          "هندوراس"
+        ],
+        "correct_answer": "الأرجنتين",
+        "points_level": 400,
+        "media_url": "/game-media/أعلام_الدول/flag_argentina.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هي الدولة الأوروبية صاحبة الألوان الثلاثة (الأسود والأحمر والأصفر الذهبي)؟",
+        "options_json": [
+          "ألمانيا",
+          "بلجيكا",
+          "هولندا",
+          "النمسا"
+        ],
+        "correct_answer": "ألمانيا",
+        "points_level": 400,
+        "media_url": "/game-media/أعلام_الدول/flag_germany.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هي الدولة صاحبة العلم الأحمر الذي يحمل الهلال والنجمة البيضاء؟",
+        "options_json": [
+          "تركيا",
+          "تونس",
+          "أذربيجان",
+          "الجزائر"
+        ],
+        "correct_answer": "تركيا",
+        "points_level": 400,
+        "media_url": "/game-media/أعلام_الدول/flag_turkey.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هي الدولة الإفريقية صاحبة علم 'قوس قزح' متعدد الألوان؟",
+        "options_json": [
+          "جنوب إفريقيا",
+          "غانا",
+          "نيجيريا",
+          "كينيا"
+        ],
+        "correct_answer": "جنوب إفريقيا",
+        "points_level": 400,
+        "media_url": "/game-media/أعلام_الدول/flag_south_africa.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هي هذه الدولة التي يتطابق علمها تقريباً مع علم رومانيا (أزرق، أصفر، أحمر)؟",
+        "options_json": [
+          "تشاد",
+          "مالي",
+          "غينيا",
+          "الكاميرون"
+        ],
+        "correct_answer": "تشاد",
+        "points_level": 600,
+        "media_url": "/game-media/أعلام_الدول/flag_chad.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هي هذه الدولة الآسيوية صاحبة العلم ذي الخطين (الأحمر والأبيض) المتطابق مع موناكو؟",
+        "options_json": [
+          "إندونيسيا",
+          "بولندا",
+          "سنغافورة",
+          "الفلبين"
+        ],
+        "correct_answer": "إندونيسيا",
+        "points_level": 600,
+        "media_url": "/game-media/أعلام_الدول/flag_indonesia.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هي هذه الدولة الشمالية صاحبة الصليب الأحمر المحاط بالأبيض على خلفية زرقاء؟",
+        "options_json": [
+          "آيسلندا",
+          "النرويج",
+          "فنلندا",
+          "السويد"
+        ],
+        "correct_answer": "آيسلندا",
+        "points_level": 600,
+        "media_url": "/game-media/أعلام_الدول/flag_iceland.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هي الدولة الخليجية صاحبة اللون العنابي (العنابي والأبيض بـ 9 رؤوس مسننة)؟",
+        "options_json": [
+          "قطر",
+          "البحرين",
+          "عُمان",
+          "الكويت"
+        ],
+        "correct_answer": "قطر",
+        "points_level": 600,
+        "media_url": "/game-media/أعلام_الدول/flag_qatar.png",
+        "status": "active"
+      }
+    ]
+  },
+  {
+    "name": "معالم سياحية وأثرية",
+    "section": "تاريخ وجغرافيا",
+    "description": "خمّن المعلم السياحي والتاريخي الشهير من خلف التغبيش!",
+    "questions": [
+      {
+        "question_text": "ما هي المدينة الوردية الأردنية وإحدى عجائب الدنيا السبع المعروضة بالصورة؟",
+        "options_json": [
+          "البتراء (الخزنة)",
+          "جرش",
+          "قلعة عجلون",
+          "أم قيس"
+        ],
+        "correct_answer": "البتراء (الخزنة)",
+        "points_level": 200,
+        "media_url": "/game-media/معالم_سياحية_وأثرية/landmark_petra.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هو المعلم الإسلامي والقدسي الشريف ذو القبة الذهبية؟",
+        "options_json": [
+          "قبة الصخرة المشرفة",
+          "المسجد القبلي",
+          "المسجد الإبراهيمي",
+          "جامع بني أمية"
+        ],
+        "correct_answer": "قبة الصخرة المشرفة",
+        "points_level": 200,
+        "media_url": "/game-media/معالم_سياحية_وأثرية/landmark_dome_of_rock.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هو البرج الحديدي الشهير في باريس صاحب هذا الشكل؟",
+        "options_json": [
+          "برج إيفل",
+          "برج بيزا",
+          "ساعة بيغ بن",
+          "برج طوكيو"
+        ],
+        "correct_answer": "برج إيفل",
+        "points_level": 200,
+        "media_url": "/game-media/معالم_سياحية_وأثرية/landmark_eiffel_tower.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هي إحدى عجائب العالم القديم الباقية في مصر؟",
+        "options_json": [
+          "أهرامات الجيزة",
+          "معبد الكرنك",
+          "معبد أبو سمبل",
+          "قلعة قايتباي"
+        ],
+        "correct_answer": "أهرامات الجيزة",
+        "points_level": 200,
+        "media_url": "/game-media/معالم_سياحية_وأثرية/landmark_pyramids_giza.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هو المدرج الروماني العملاق الواقع في العاصمة الإيطالية روما؟",
+        "options_json": [
+          "الكولوسيوم",
+          "البانثيون",
+          "مدرج بصرى",
+          "مدرج الجم"
+        ],
+        "correct_answer": "الكولوسيوم",
+        "points_level": 400,
+        "media_url": "/game-media/معالم_سياحية_وأثرية/landmark_colosseum.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هو الضريح المعماري الشهير المبني من الرخام الأبيض في الهند؟",
+        "options_json": [
+          "تاج محل",
+          "قصر الحمراء",
+          "مسجد بادشاهي",
+          "قطب منار"
+        ],
+        "correct_answer": "تاج محل",
+        "points_level": 400,
+        "media_url": "/game-media/معالم_سياحية_وأثرية/landmark_taj_mahal.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هو البرج الإيطالي الشهير المائل الذي يتحدى الجاذبية؟",
+        "options_json": [
+          "برج بيزا المائل",
+          "برج خليفة",
+          "برج لندن",
+          "برج جالاتا"
+        ],
+        "correct_answer": "برج بيزا المائل",
+        "points_level": 400,
+        "media_url": "/game-media/معالم_سياحية_وأثرية/landmark_pisa_tower.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هي المدينة الأثرية الأردنية المعروفة بـ 'مدينة الألف عمود' وساحتها البيضاوية؟",
+        "options_json": [
+          "جرش",
+          "مادبا",
+          "أم الرصاص",
+          "طبقة فحل"
+        ],
+        "correct_answer": "جرش",
+        "points_level": 400,
+        "media_url": "/game-media/معالم_سياحية_وأثرية/landmark_jerash_oval_plaza.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هي مدينة الإنكا المفقودة الشهيرة الواقعة فوق جبال الأنديز في البيرو؟",
+        "options_json": [
+          "ماتشو بيتشو",
+          "تشيتشن إيتزا",
+          "تيوتيهواكان",
+          "تيواناكو"
+        ],
+        "correct_answer": "ماتشو بيتشو",
+        "points_level": 600,
+        "media_url": "/game-media/معالم_سياحية_وأثرية/landmark_machu_picchu.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هو القصر الأندلسي التاريخي الفاخر الواقع في غرناطة بإسبانيا؟",
+        "options_json": [
+          "قصر الحمراء",
+          "قصر المورق (إشبيلية)",
+          "جامع قرطبة",
+          "قصر الجعفرية"
+        ],
+        "correct_answer": "قصر الحمراء",
+        "points_level": 600,
+        "media_url": "/game-media/معالم_سياحية_وأثرية/landmark_alhambra.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هو التمثال الرمزي الشهير القائم في جزيرة الحرية بنيويورك؟",
+        "options_json": [
+          "تمثال الحرية",
+          "تمثال المسيح الفادي",
+          "تمثال الوطن الأم",
+          "أبو الهول"
+        ],
+        "correct_answer": "تمثال الحرية",
+        "points_level": 600,
+        "media_url": "/game-media/معالم_سياحية_وأثرية/landmark_statue_of_liberty.png",
+        "status": "active"
+      },
+      {
+        "question_text": "ما هي القلعة الأردنية التاريخية التي بناها القائد عز الدين أسامة بأمر من صلاح الدين الأيوبي؟",
+        "options_json": [
+          "قلعة عجلون",
+          "قلعة الكرك",
+          "قلعة الشوبك",
+          "قلعة عمان"
+        ],
+        "correct_answer": "قلعة عجلون",
+        "points_level": 600,
+        "media_url": "/game-media/معالم_سياحية_وأثرية/landmark_ajloun_castle.png",
+        "status": "active"
+      }
+    ]
+  }
+]
