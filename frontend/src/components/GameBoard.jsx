@@ -102,6 +102,8 @@ skipTurn,
 nextTurn
 } = useGameStore();
 
+const currentTeam = teams?.[currentTurn] || teams?.[0] || { name: '', score: 0 };
+
 // Auto-recovery: فك تعليق اللعبة تلقائياً إذا نفدت أسئلة الفريق صاحب الدور الحالي
 useEffect(() => {
   if (gameStage === 'playing' && board && board.length > 0 && !questionModalOpen && !wheelModalOpen) {
@@ -207,8 +209,6 @@ handleAnswer(false);
 }
 return () => clearInterval(interval);
 }, [timerActive, isTimerEnabled, timeLeft, isAnswerRevealed, activeTile, handleAnswer]);
-
-const currentTeam = teams[currentTurn] || teams[0];
 
 // Circular SVG timer calculation
 const currentEffectiveMaxTime = reboundState.isActive 
