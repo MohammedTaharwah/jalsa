@@ -187,7 +187,7 @@ if (saved) {
 }
 } catch (e) {}
 return [
-{ id: 1, name: 'فريق الصقور', iconName: 'Shield', color: 'purple', loadout: ['double', 'steal'] },
+{ id: 1, name: 'فريق الصقور', iconName: 'Shield', color: 'purple', loadout: ['double', 'bomb'] },
 { id: 2, name: 'فريق الأسود', iconName: 'Flame', color: 'orange', loadout: ['freeze', 'fifty'] }
 ];
 });

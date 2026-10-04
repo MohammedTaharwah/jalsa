@@ -172,16 +172,19 @@ return;
 }
 
 if (reboundState.isActive) {
-setTimeLeft(REBOUND_SECONDS);
-setTimerActive(true);
+  setTimeLeft(REBOUND_SECONDS);
+  setTimerActive(true);
 } else if (!isAnswerRevealed) {
-setTimeLeft(TIMER_SECONDS);
-setTimerActive(true);
-setIsExposedAnswerShown(false);
+  // If team is bombed, cut their answering time to 15 seconds!
+  const isTeamBombed = Boolean(currentTeam?.isBombed);
+  const startingSeconds = isTeamBombed ? 15 : TIMER_SECONDS;
+  setTimeLeft(startingSeconds);
+  setTimerActive(true);
+  setIsExposedAnswerShown(false);
 } else {
-setTimerActive(false);
+  setTimerActive(false);
 }
-}, [questionModalOpen, activeTile, reboundState.isActive, isAnswerRevealed, isTimerEnabled]);
+}, [questionModalOpen, activeTile, reboundState.isActive, isAnswerRevealed, isTimerEnabled, currentTeam?.isBombed]);
 
 // Countdown Interval Effect
 useEffect(() => {
@@ -201,7 +204,11 @@ return () => clearInterval(interval);
 const currentTeam = teams[currentTurn] || teams[0];
 
 // Circular SVG timer calculation
-const strokeDashoffset = isTimerEnabled ? 100 - (timeLeft / currentMaxTime) * 100 : 0;
+const currentEffectiveMaxTime = reboundState.isActive 
+  ? REBOUND_SECONDS 
+  : (currentTeam?.isBombed ? 15 : TIMER_SECONDS);
+
+const strokeDashoffset = isTimerEnabled ? 100 - (timeLeft / currentEffectiveMaxTime) * 100 : 0;
 
 // Calculate effective points for display
 const getDisplayPoints = () => {
@@ -269,6 +276,11 @@ currentTurn === 0
 <span className="text-xs sm:text-sm font-black tracking-wide">
 {currentTeam.name}
 </span>
+{currentTeam.isBombed && (
+<span className="px-1.5 py-0.5 rounded-md bg-rose-500 text-white text-[9px] font-black flex items-center gap-0.5 animate-pulse">
+💣 قنبلة (15ث)
+</span>
+)}
 {currentTeam.isFrozen && (
 <span className="px-1.5 py-0.2 rounded-md bg-cyan-400 text-slate-900 text-[9px] font-black flex items-center gap-0.5">
 <Snowflake className="w-2.5 h-2.5" /> مجمّد
@@ -1150,17 +1162,22 @@ title="طلب وقت إضافي (+15 ثانية للتفكير)"
 </button>
 )}
 
-{/* Change Question Button (تغيير السؤال 🔄) */}
+{/* Change Question Button (تغيير السؤال 🔄 - مجاناً ومرة واحدة لكل فريق) */}
 <button
 type="button"
+disabled={currentTeam?.hasUsedSwap}
 onClick={swapActiveQuestion}
-className="px-4 py-2 rounded-2xl font-black text-xs sm:text-sm flex items-center gap-2 border border-purple-300 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md shadow-purple-500/20 active:scale-95 cursor-pointer transition-all"
-title="استبدال السؤال الحالي بسؤال بديل من نفس المستوى (مجاناً)"
+className={`px-4 py-2 rounded-2xl font-black text-xs sm:text-sm flex items-center gap-2 border transition-all ${
+currentTeam?.hasUsedSwap
+? 'bg-slate-100 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed'
+: 'border-purple-300 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md shadow-purple-500/20 active:scale-95 cursor-pointer'
+}`}
+title={currentTeam?.hasUsedSwap ? 'استهلك فريقك فرصة تغيير السؤال المجانية لهذه اللعبة' : 'استبدال السؤال الحالي بسؤال بديل مجاناً (مرة واحدة لكل فريق)'}
 >
 <RefreshCw className="w-4 h-4 text-purple-200" />
 <span>تغيير السؤال 🔄</span>
 <span className="px-2 py-0.5 rounded-full bg-black/20 text-purple-100 text-[10px] font-extrabold mr-1">
-مجاناً
+{currentTeam?.hasUsedSwap ? 'تم الاستخدام' : 'مجاناً (مرة واحدة)'}
 </span>
 </button>
 </div>

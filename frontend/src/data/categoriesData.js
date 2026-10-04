@@ -108,15 +108,15 @@ badge: 'حظر',
 emoji: ''
 },
 {
-id: 'steal',
-name: 'سرقة سؤال',
-shortName: 'سرقة سؤال',
-desc: 'تفعيل نمط السرقة لاختيار سؤال من فئات الخصم وحرمانه منه',
-iconName: 'Swords',
-cost: 200,
+id: 'bomb',
+name: 'قنبلة الوقت 💣',
+shortName: 'قنبلة الوقت',
+desc: 'زرع قنبلة تقلص وقت إجابة الفريق الخصم إلى النصف (15ث فقط) في دوره القادم!',
+iconName: 'Bomb',
+cost: 150,
 color: 'rose',
-badge: 'سرقة',
-emoji: ''
+badge: '💣 قنبلة',
+emoji: '💣'
 },
 {
 id: 'fifty',

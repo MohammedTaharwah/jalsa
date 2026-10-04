@@ -108,9 +108,11 @@ export const useGameStore = create((set, get) => {
         color: 'purple',
         iconName: 'Shield',
         isFrozen: false,
+        isBombed: false,
+        hasUsedSwap: false,
         hasUsedWheel: false,
-        loadout: ['double', 'steal'],
-        powerups: { double: 1, steal: 1 }
+        loadout: ['double', 'bomb'],
+        powerups: { double: 1, bomb: 1 }
       },
       {
         id: 2,
@@ -119,6 +121,8 @@ export const useGameStore = create((set, get) => {
         color: 'orange',
         iconName: 'Flame',
         isFrozen: false,
+        isBombed: false,
+        hasUsedSwap: false,
         hasUsedWheel: false,
         loadout: ['freeze', 'fifty'],
         powerups: { freeze: 1, fifty: 1 }
@@ -617,12 +621,14 @@ currentRoute: 'board',
 teams: configuredTeams.map((t, i) => {
 const teamLoadout = t.loadout && t.loadout.length === 2
 ? t.loadout
-: (i === 0 ? ['double', 'steal'] : ['freeze', 'fifty']);
+: (i === 0 ? ['double', 'bomb'] : ['freeze', 'fifty']);
 return {
 ...t,
 id: t.id || i + 1,
 score: t.score || 0,
 isFrozen: false,
+isBombed: false,
+hasUsedSwap: false,
 hasUsedWheel: false,
 loadout: teamLoadout,
 powerups: teamLoadout.reduce((acc, w) => ({ ...acc, [w]: 1 }), {})
@@ -754,20 +760,20 @@ message: hasCharge
 }
 }));
 confetti({ particleCount: 55, spread: 60 });
-} else if (powerupId === 'steal') {
-set({
-isStealMode: true,
-stealDeductionType: hasCharge ? 'charge' : 'points',
-stealCost: cost,
+} else if (powerupId === 'bomb') {
+const rivalIndex = (currentTurn + 1) % teams.length;
+const rivalName = teams[rivalIndex]?.name || 'الفريق الخصم';
+set(state => ({
+teams: state.teams.map((t, idx) => idx === rivalIndex ? { ...t, isBombed: true } : t),
 gameBanner: {
-type: 'steal',
-title: 'وضع سرقة السؤال مفعّل! ⚔️',
+type: 'warning',
+title: '💣 تم زرع قنبلة الوقت!',
 message: hasCharge
-? 'تم تفعيل سرقة السؤال! يمكنك الآن فتح أي سؤال (حتى لو كان مغلقاً) من فئات الخصم لسرقته!'
-: `تم خصم ${cost} نقطة. يمكنك الآن فتح أي سؤال (حتى لو كان مغلقاً) من فئات الخصم لسرقته!`
+? `تم استخدام شحنة القنبلة! تم زرع قنبلة وقت لفريق [${rivalName}]، سيتقلص وقت إجابته إلى (15 ثانية فقط) في دوره القادم!`
+: `تم خصم ${cost} نقطة. تم زرع قنبلة وقت لفريق [${rivalName}]، سيتقلص وقت إجابته إلى (15 ثانية فقط) في دوره القادم!`
 }
-});
-confetti({ particleCount: 70, spread: 70 });
+}));
+confetti({ particleCount: 75, spread: 80 });
 } else if (powerupId === 'fifty') {
 const { activeQuestion } = get();
 const options = activeQuestion?.options_json || activeQuestion?.options || [];
@@ -981,11 +987,23 @@ cancelStealMode: () => {
 },
 
 /**
- * تغيير السؤال الحالي واستبداله بسؤال بديل من نفس المستوى (واذا بدك تغيير)
+ * تغيير السؤال الحالي واستبداله بسؤال بديل من نفس المستوى (مجاناً ومرة واحدة فقط لكل فريق طوال الجلسة)
  */
 swapActiveQuestion: () => {
-  const { activeTile, activeQuestion, board, currentUser } = get();
+  const { activeTile, activeQuestion, board, currentUser, teams, currentTurn } = get();
   if (!activeTile || !activeQuestion || get().isAnswerRevealed) return;
+
+  const currentTeam = teams[currentTurn];
+  if (currentTeam?.hasUsedSwap) {
+    set({
+      gameBanner: {
+        type: 'warning',
+        title: 'استنفدت فرصة التغيير!',
+        message: `فريق [${currentTeam.name}] استهلك فرصة تغيير السؤال المجانية المتاحة له في هذه اللعبة!`
+      }
+    });
+    return;
+  }
 
   const catId = activeTile.categoryId;
   const pts = activeTile.points;
@@ -1048,7 +1066,8 @@ swapActiveQuestion: () => {
     };
   });
 
-  set({
+  set(state => ({
+    teams: state.teams.map((t, idx) => idx === currentTurn ? { ...t, hasUsedSwap: true } : t),
     board: updatedBoard,
     activeQuestion: newQuestion,
     eliminatedOptions: [],
@@ -1056,9 +1075,9 @@ swapActiveQuestion: () => {
     gameBanner: {
       type: 'info',
       title: '🔄 تم تغيير السؤال بنجاح!',
-      message: 'تم استبدال السؤال بسؤال جديد مختلف من نفس المستوى. بالتوفيق!'
+      message: `تم استبدال السؤال بسؤال جديد مختلف لفريق [${currentTeam.name}]. (تم استهلاك الفرصة المجانية).`
     }
-  });
+  }));
 
   confetti({ particleCount: 45, spread: 65 });
 },
@@ -1830,7 +1849,13 @@ nextTurn: () => {
 
   let nextTeam = teams[nextIndex];
   let banner = skipBanner;
-  if (nextTeam.isFrozen) {
+  if (nextTeam.isBombed) {
+    banner = {
+      type: 'warning',
+      title: '💣 تنبيه قنبلة الوقت!',
+      message: `دور [${nextTeam.name}] الآن تحت تأثير قنبلة الوقت! تم تقليص وقت الإجابة إلى 15 ثانية فقط!`
+    };
+  } else if (nextTeam.isFrozen) {
     banner = {
       type: 'frozen_turn',
       title: 'تنبيه التجميد!',
